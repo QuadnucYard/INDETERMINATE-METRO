@@ -1,0 +1,17 @@
+{
+  "name": "im-ridership",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "process-ridership": "bun run src/process_ridership.ts"
+  },
+  "dependencies": {
+    "radash": "^12.1.1"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:"
+  },
+  "peerDependencies": {
+    "typescript": "catalog:"
+  }
+}

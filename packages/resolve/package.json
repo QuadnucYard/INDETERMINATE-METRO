@@ -1,0 +1,17 @@
+{
+  "name": "im-resolve",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "generate-ir": "bun run src/generate_ir.ts"
+  },
+  "dependencies": {
+    "radash": "^12.1.1"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:"
+  },
+  "peerDependencies": {
+    "typescript": "catalog:"
+  }
+}

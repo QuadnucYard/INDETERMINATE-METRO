@@ -1,7 +1,20 @@
 {
   "name": "indeterminate-metro",
   "private": true,
-  "workspaces": [
-    "packages/*"
-  ]
+  "scripts": {
+    "fmt": "biome format --write packages",
+    "lint": "biome lint --write packages",
+    "check": "biome check --write packages",
+    "process-ridership": "cd ./packages/ridership && bun run process-ridership",
+    "generate-preview-ir": "cd ./packages/resolve && bun run generate-ir"
+  },
+  "workspaces": {
+    "packages": [
+      "packages/*"
+    ],
+    "catalog": {
+      "@types/bun": "latest",
+      "typescript": "^5"
+    }
+  }
 }

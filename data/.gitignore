@@ -1,2 +1,5 @@
 *.*
 !.gitignore
+!ridership.csv
+!lines_meta.json
+!events.json

@@ -5,7 +5,7 @@ import type { PreviewIR } from "./types";
  * Load preview IR data from JSON file
  */
 async function loadIRData(): Promise<PreviewIR> {
-  const resp = await fetch("/preview_ir.json");
+  const resp = await fetch(`${import.meta.env.BASE_URL}preview_ir.json`);
   if (!resp.ok) {
     throw new Error(`Failed to load preview_ir.json: ${resp.status}`);
   }

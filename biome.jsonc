@@ -1,11 +1,11 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.3.8/schema.json",
   "linter": {
-    "includes": ["**", "!*.jsx"]
+    "includes": ["**", "!*.jsx", "!**/dist/**"]
   },
   "formatter": {
     "indentStyle": "space",
     "lineWidth": 100,
-    "includes": ["**", "!data/*"]
+    "includes": ["**", "!data/*", "data/events.json", "!**/public/*.json", "!**/dist/**"]
   }
 }

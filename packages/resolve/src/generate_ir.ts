@@ -196,6 +196,7 @@ async function main() {
   };
 
   // Write output
+  await fs.mkdir(path.dirname(OUT_PATH), { recursive: true });
   await fs.writeFile(OUT_PATH, JSON.stringify(previewIR), "utf8");
   console.log(`Wrote PreviewIR to ${OUT_PATH}`);
 }

@@ -1,0 +1,494 @@
+[
+  {
+    "date": "2005-9-3",
+    "line": "1",
+    "type": "open",
+    "stations": { "from": "迈皋桥", "to": "奥体中心" }
+  },
+
+  {
+    "date": "2010-5-28",
+    "line": "1",
+    "type": "open",
+    "stations": { "from": "安德门", "to": "中国药科大学", "except": ["南京南站"] }
+  },
+  {
+    "date": "2010-05-28",
+    "line": "2",
+    "type": "open",
+    "stations": { "from": "油坊桥", "to": "经天路" }
+  },
+
+  {
+    "date": "2011-6-28",
+    "line": "1",
+    "type": "open",
+    "stations": ["南京南站"]
+  },
+
+  {
+    "date": "2014-6-1",
+    "line": "1",
+    "type": "close",
+    "stations": { "from": "安德门", "to": "奥体中心" }
+  },
+
+  {
+    "date": "2014-07-01",
+    "line": "10",
+    "type": "open",
+    "stations": { "from": "雨山路", "to": "安德门" }
+  },
+  {
+    "date": "2014-07-01",
+    "line": "S1",
+    "type": "open",
+    "stations": { "from": "南京南站", "to": "禄口机场" }
+  },
+
+  {
+    "date": "2014-08-01",
+    "line": "S8",
+    "type": "open",
+    "stations": { "from": "泰山新村", "to": "金牛湖" }
+  },
+
+  {
+    "date": "2015-04-01",
+    "line": "3",
+    "type": "open",
+    "stations": { "from": "林场", "to": "秣周东路", "except": ["上元门"] }
+  },
+
+  {
+    "date": "2015-10-18",
+    "line": "3",
+    "type": "open",
+    "stations": ["上元门"]
+  },
+
+  {
+    "date": "2017-01-18",
+    "line": "4",
+    "type": "open",
+    "stations": { "from": "龙江", "to": "仙林湖" }
+  },
+
+  {
+    "date": "2017-12-06",
+    "line": "S3",
+    "type": "open",
+    "stations": { "from": "南京南站", "to": "高家冲" }
+  },
+
+  {
+    "date": "2017-12-30",
+    "line": "S9",
+    "type": "open",
+    "stations": { "from": "翔宇路南", "to": "高淳" }
+  },
+
+  {
+    "date": "2018-05-26",
+    "line": "S1",
+    "type": "open",
+    "stations": { "from": "禄口机场", "to": "空港新城江宁" }
+  },
+  {
+    "date": "2018-05-26",
+    "line": "S7",
+    "type": "open",
+    "stations": { "from": "空港新城江宁", "to": "无想山" }
+  },
+
+  {
+    "date": "2020-02-01",
+    "line": "S3",
+    "type": "suspend",
+    "stations": { "from": "刘村", "to": "高家冲" }
+  },
+  {
+    "date": "2018-02-01",
+    "line": "S8",
+    "type": "suspend",
+    "stations": { "from": "方州广场", "to": "金牛湖" }
+  },
+
+  {
+    "date": "2018-02-06",
+    "line": "S9",
+    "type": "suspend",
+    "stations": ["团结圩"]
+  },
+
+  {
+    "date": "2020-02-22",
+    "line": "S3",
+    "type": "resume",
+    "stations": { "from": "刘村", "to": "高家冲" }
+  },
+  {
+    "date": "2020-02-22",
+    "line": "S8",
+    "type": "resume",
+    "stations": { "from": "方州广场", "to": "金牛湖" }
+  },
+  {
+    "date": "2020-02-22",
+    "line": "S9",
+    "type": "resume",
+    "stations": ["团结圩"]
+  },
+
+  {
+    "date": "2020-05-01",
+    "line": "2",
+    "type": "suspend",
+    "stations": { "from": "油坊桥", "to": "雨润大街" }
+  },
+
+  {
+    "date": "2020-05-05",
+    "line": "2",
+    "type": "resume",
+    "stations": { "from": "油坊桥", "to": "雨润大街" }
+  },
+
+  {
+    "date": "2021-05-01",
+    "line": "2",
+    "type": "suspend",
+    "stations": { "from": "油坊桥", "to": "元通" }
+  },
+
+  {
+    "date": "2021-05-10",
+    "line": "2",
+    "type": "resume",
+    "stations": { "from": "油坊桥", "to": "元通" }
+  },
+
+  {
+    "date": "2021-07-22",
+    "line": "S1",
+    "type": "suspend",
+    "stations": { "from": "南京南站", "to": "空港新城江宁" }
+  },
+  {
+    "date": "2021-07-22",
+    "line": "S7",
+    "type": "suspend",
+    "stations": { "from": "空港新城江宁", "to": "柘塘" }
+  },
+  {
+    "date": "2021-07-22",
+    "line": "S9",
+    "type": "suspend",
+    "stations": { "from": "翔宇路南", "to": "石湫" }
+  },
+
+  {
+    "date": "2021-07-24",
+    "line": "S7",
+    "type": "suspend",
+    "stations": { "from": "柘塘", "to": "无想山" }
+  },
+  {
+    "date": "2021-07-24",
+    "line": "S9",
+    "type": "suspend",
+    "stations": { "from": "石湫", "to": "高淳" }
+  },
+
+  {
+    "date": "2021-07-26",
+    "line": "S3",
+    "type": "suspend",
+    "stations": { "from": "刘村", "to": "马骡圩" }
+  },
+
+  {
+    "date": "2021-07-28",
+    "line": "S3",
+    "type": "resume",
+    "stations": { "from": "刘村", "to": "马骡圩" }
+  },
+
+  {
+    "date": "2021-08-03",
+    "line": "1",
+    "type": "suspend",
+    "stations": { "from": "南京南站", "to": "中国药科大学" }
+  },
+  {
+    "date": "2021-08-03",
+    "line": "3",
+    "type": "suspend",
+    "stations": { "from": "南京南站", "to": "秣周东路" }
+  },
+  {
+    "date": "2021-08-03",
+    "line": "S8",
+    "type": "suspend",
+    "stations": { "from": "方州广场", "to": "金牛湖" }
+  },
+
+  {
+    "date": "2021-08-20",
+    "line": "1",
+    "type": "resume",
+    "stations": { "from": "南京南站", "to": "中国药科大学" }
+  },
+  {
+    "date": "2021-08-20",
+    "line": "3",
+    "type": "resume",
+    "stations": { "from": "南京南站", "to": "秣周东路" }
+  },
+
+  {
+    "date": "2021-08-26",
+    "line": "S1",
+    "type": "resume",
+    "stations": { "from": "南京南站", "to": "空港新城江宁" }
+  },
+  {
+    "date": "2021-08-26",
+    "line": "S7",
+    "type": "resume",
+    "stations": { "from": "空港新城江宁", "to": "无想山" }
+  },
+  {
+    "date": "2021-08-26",
+    "line": "S9",
+    "type": "resume",
+    "stations": { "from": "翔宇路南", "to": "高淳" }
+  },
+
+  {
+    "date": "2021-09-30",
+    "line": "S8",
+    "type": "resume",
+    "stations": { "from": "方州广场", "to": "金牛湖" }
+  },
+
+  {
+    "date": "2021-12-28",
+    "line": "2",
+    "type": "open",
+    "stations": { "from": "鱼嘴", "to": "油坊桥" }
+  },
+  {
+    "date": "2021-12-28",
+    "line": "S6",
+    "type": "open",
+    "stations": { "from": "马群", "to": "句容" }
+  },
+
+  {
+    "date": "2022-03-16",
+    "line": "1",
+    "type": "suspend",
+    "stations": { "from": "南京南站", "to": "中国药科大学" }
+  },
+  {
+    "date": "2022-03-16",
+    "line": "3",
+    "type": "suspend",
+    "stations": { "from": "南京南站", "to": "秣周东路" }
+  },
+  {
+    "date": "2022-03-16",
+    "line": "S1",
+    "type": "suspend",
+    "stations": { "from": "南京南站", "to": "空港新城江宁" }
+  },
+  {
+    "date": "2022-03-16",
+    "line": "S6",
+    "type": "suspend",
+    "stations": { "from": "泉都大街", "to": "句容" }
+  },
+  {
+    "date": "2022-03-16",
+    "line": "S7",
+    "type": "suspend",
+    "stations": { "from": "空港新城江宁", "to": "无想山" }
+  },
+  {
+    "date": "2022-03-16",
+    "line": "S8",
+    "type": "suspend",
+    "stations": { "from": "方州广场", "to": "金牛湖" }
+  },
+  {
+    "date": "2022-03-16",
+    "line": "S9",
+    "type": "suspend",
+    "stations": { "from": "翔宇路南", "to": "高淳" }
+  },
+  {
+    "date": "2022-03-17",
+    "line": "S6",
+    "type": "suspend",
+    "stations": { "from": "马群", "to": "泉都大街" }
+  },
+
+  {
+    "date": "2022-03-30",
+    "line": "1",
+    "type": "resume",
+    "stations": { "from": "南京南站", "to": "中国药科大学" }
+  },
+  {
+    "date": "2022-03-30",
+    "line": "3",
+    "type": "resume",
+    "stations": { "from": "南京南站", "to": "秣周东路" }
+  },
+  {
+    "date": "2022-03-30",
+    "line": "S1",
+    "type": "resume",
+    "stations": { "from": "南京南站", "to": "空港新城江宁" }
+  },
+  {
+    "date": "2022-03-30",
+    "line": "S7",
+    "type": "resume",
+    "stations": { "from": "空港新城江宁", "to": "无想山" }
+  },
+  {
+    "date": "2022-03-30",
+    "line": "S8",
+    "type": "resume",
+    "stations": { "from": "方州广场", "to": "金牛湖" }
+  },
+  {
+    "date": "2022-03-30",
+    "line": "S9",
+    "type": "resume",
+    "stations": { "from": "翔宇路南", "to": "高淳" }
+  },
+  {
+    "date": "2022-05-12",
+    "line": "S6",
+    "type": "resume",
+    "stations": { "from": "马群", "to": "句容" }
+  },
+
+  {
+    "date": "2022-09-30",
+    "line": "S8",
+    "type": "open",
+    "stations": { "from": "长江大桥北", "to": "泰山新村" }
+  },
+
+  {
+    "date": "2022-10-27",
+    "line": "1",
+    "type": "suspend",
+    "stations": { "from": "迈皋桥", "to": "南京站" }
+  },
+  {
+    "date": "2022-11-06",
+    "line": "1",
+    "type": "resume",
+    "stations": { "from": "迈皋桥", "to": "南京站" }
+  },
+
+  {
+    "date": "2022-12-28",
+    "line": "1",
+    "type": "open",
+    "stations": { "from": "八卦洲大桥南", "to": "迈皋桥" }
+  },
+  {
+    "date": "2022-12-28",
+    "line": "7",
+    "type": "open",
+    "stations": { "from": "仙新路", "to": "幕府西路" }
+  },
+
+  {
+    "date": "2023-12-28",
+    "line": "7",
+    "type": "open",
+    "stations": { "from": "应天大街", "to": "西善桥" }
+  },
+
+  {
+    "date": "2024-03-31",
+    "line": "5",
+    "type": "open",
+    "stations": { "from": "文靖路", "to": "吉印大道" }
+  },
+
+  {
+    "date": "2024-07-10",
+    "line": "7",
+    "type": "suspend",
+    "stations": { "from": "仙新路", "to": "幕府西路" }
+  },
+  {
+    "date": "2024-07-10",
+    "line": "7",
+    "type": "suspend",
+    "stations": { "from": "应天大街", "to": "西善桥" }
+  },
+
+  {
+    "date": "2024-08-18",
+    "line": "7",
+    "type": "resume",
+    "stations": { "from": "仙新路", "to": "幕府西路" }
+  },
+  {
+    "date": "2024-08-18",
+    "line": "7",
+    "type": "resume",
+    "stations": { "from": "应天大街", "to": "西善桥" }
+  },
+
+  {
+    "date": "2024-12-28",
+    "line": "7",
+    "type": "open",
+    "stations": { "from": "幕府西路", "to": "应天大街" }
+  },
+
+  {
+    "date": "2025-01-01",
+    "line": "5",
+    "type": "suspend",
+    "stations": { "from": "文靖路", "to": "吉印大道" }
+  },
+
+  {
+    "date": "2025-02-05",
+    "line": "10",
+    "type": "suspend",
+    "stations": { "from": "浦口万汇城", "to": "绿博园" }
+  },
+
+  {
+    "date": "2025-02-27",
+    "line": "10",
+    "type": "resume",
+    "stations": { "from": "浦口万汇城", "to": "绿博园" }
+  },
+
+  {
+    "date": "2025-03-12",
+    "line": "5",
+    "type": "resume",
+    "stations": { "from": "文靖路", "to": "吉印大道" }
+  },
+
+  {
+    "date": "2025-08-06",
+    "line": "5",
+    "type": "resume",
+    "stations": { "from": "方家营", "to": "文靖路" }
+  }
+]

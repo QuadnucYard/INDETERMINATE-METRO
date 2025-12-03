@@ -1,0 +1,261 @@
+:root {
+  --bg-color: #0a0a0f;
+  --panel-bg: #1a1a24;
+  --text-color: #e0e0e0;
+  --text-muted: #888;
+  --accent: #dd434d;
+  --border: #333;
+  --control-height: 60px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: var(--bg-color);
+  color: var(--text-color);
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.canvas-container {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+.controls {
+  background: var(--panel-bg);
+  border-top: 1px solid var(--border);
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  padding: 0.5rem 1rem;
+  display: flex;
+  flex-direction: column;
+  row-gap: 0.5rem;
+}
+
+.control-bar {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+}
+
+.control-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.control-group label {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.label-text {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  min-width: 5rem;
+}
+
+/* Progress section - prominent like video player */
+.progress-section {
+  width: 100%;
+}
+
+.progress-bar {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: height 0.15s;
+}
+
+.progress-bar:hover {
+  height: 8px;
+}
+
+.progress-bar::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+
+.progress-bar::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+.progress-bar::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: none;
+  cursor: pointer;
+}
+
+.progress-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.25rem 0;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+/* Control bar with playback and settings */
+.control-bar {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+}
+
+.playback-controls {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.settings-controls {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  margin-left: auto;
+}
+
+.control-item {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.8125rem;
+}
+
+.control-item span {
+  color: var(--text-muted);
+  min-width: 3rem;
+}
+
+.control-item input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 80px;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.control-item input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+}
+
+.control-item input[type="range"]::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: none;
+  cursor: pointer;
+}
+
+.control-item output {
+  font-variant-numeric: tabular-nums;
+  min-width: 3ch;
+  text-align: right;
+  color: var(--text-color);
+}
+
+.control-item.checkbox {
+  gap: 0.35rem;
+}
+
+.control-item.checkbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+
+.control-item.checkbox span {
+  min-width: auto;
+}
+
+.playback-controls button {
+  width: 1.5rem;
+  height: 1.5rem;
+  border: none;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-color);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    transform 0.1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.playback-controls button:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.playback-controls button:active {
+  transform: scale(0.95);
+}
+
+#play-btn {
+  background: var(--accent);
+  color: #fff;
+}
+
+#play-btn:hover {
+  background: #e5545d;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .control-bar {
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .settings-controls {
+    margin-left: 0;
+    width: 100%;
+    justify-content: space-around;
+  }
+
+  .control-item input[type="range"] {
+    width: 60px;
+  }
+}

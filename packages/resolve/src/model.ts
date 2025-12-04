@@ -60,12 +60,31 @@ export class MetroModel {
     );
     const newState = parseEvent(event.type);
 
-    // Update stations
-    for (const sid of targetStations) {
+    const getStation = (sid: string) => {
       const st = line.stations.get(sid);
       if (!st) {
-        throw new Error(`Unknown station ID '${sid}' on line '${event.line}' in event`);
+        throw new Error(`Unknown station ID '${sid}' on line '${event.line}' when getting state`);
       }
+      return st;
+    };
+
+    // Handle fullStations for deferred openings
+    if (event.type === "open" && event.fullStations) {
+      const fullStationsList = this.resolveStations(event.line, event.fullStations);
+      // Stations in fullStations but not in stations are deferred (show as suspended)
+      for (const sid of fullStationsList) {
+        if (!targetStations.includes(sid)) {
+          const st = getStation(sid);
+          if (st.state === ServiceState.Never) {
+            st.state = ServiceState.Suspended; // Deferred opening - exists but suspended
+          }
+        }
+      }
+    }
+
+    // Update target stations
+    for (const sid of targetStations) {
+      const st = getStation(sid);
       st.state = newState;
     }
 

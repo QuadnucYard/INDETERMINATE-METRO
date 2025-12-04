@@ -407,7 +407,8 @@
     "date": "2022-12-28",
     "line": "7",
     "type": "open",
-    "stations": { "from": "仙新路", "to": "幕府西路" }
+    "stations": { "from": "仙新路", "to": "幕府西路" },
+    "fullStations": { "from": "仙新路", "to": "西善桥" }
   },
 
   {
@@ -421,7 +422,8 @@
     "date": "2024-03-31",
     "line": "5",
     "type": "open",
-    "stations": { "from": "文靖路", "to": "吉印大道" }
+    "stations": { "from": "文靖路", "to": "吉印大道" },
+    "fullStations": { "from": "方家营", "to": "吉印大道" }
   },
 
   {

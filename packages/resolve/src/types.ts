@@ -11,6 +11,7 @@ export type EventRecord = {
   line: string; // line ID, e.g. "1", "S1", etc.
   type: "open" | "close" | "suspend" | "resume";
   stations: StationsSpec;
+  fullStations?: StationsSpec; // optional full list of stations for openings
 };
 
 export type StationsSpec =

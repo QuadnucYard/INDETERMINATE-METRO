@@ -1,11 +1,16 @@
 import { ServiceState } from "./ir";
 
+/**
+ * Calculate station positions, reserving space for all stations between first and last active.
+ * This ensures deferred stations (in fullStations but not yet open) have positions reserved.
+ */
 export function calculateStationPositions(
   allStations: string[],
   stationStates: Map<string, ServiceState>,
   topY: number,
   bottomY: number,
 ): Map<string, number> {
+  // Find indices of all active (Open or Suspended) stations
   const activeIndices: number[] = [];
   for (let i = 0; i < allStations.length; i++) {
     const stationId = allStations[i];

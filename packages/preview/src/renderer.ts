@@ -1,7 +1,7 @@
 import type { State } from "vanjs-core";
 import van from "vanjs-core";
 import type { ControlsState } from "./controls";
-import { ServiceState, type LineIR, type PreviewIR, type RenderStyle } from "./types";
+import { type LineData, type PreviewData, type RenderStyle, ServiceState } from "./types";
 import { getActiveStations, getStateAtDay, hexToRgb } from "./utils";
 
 const STATION_RADIUS = 6;
@@ -39,8 +39,8 @@ export class MetroRenderer {
   /**
    * Render the metro visualization
    */
-  render(ir: PreviewIR, day: number, styles: RenderStyle) {
-    const { meta, lines } = ir;
+  render(data: PreviewData, day: number, styles: RenderStyle) {
+    const { meta, lines } = data;
     const dayIndex = Math.floor(day);
 
     // Get canvas physical dimensions
@@ -69,7 +69,7 @@ export class MetroRenderer {
     ctx.restore();
   }
 
-  private renderLine(line: LineIR, day: number, styles: RenderStyle) {
+  private renderLine(line: LineData, day: number, styles: RenderStyle) {
     const lineState = getStateAtDay(line.statePoints, day);
     if (lineState === ServiceState.Never || lineState === ServiceState.Closed) return;
 
@@ -146,7 +146,7 @@ function calculateWidth(baseValue: number, basePx = 2, scalePx = 20, gamma = 0.6
 }
 
 export function useRenderer(
-  data: State<PreviewIR | null>,
+  data: State<PreviewData | null>,
   controlsState: ControlsState,
   styles: State<RenderStyle>,
 ) {

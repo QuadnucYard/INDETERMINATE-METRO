@@ -1,4 +1,4 @@
-import type { LineIR, ServiceState, StatePoint, StationIR } from "./types";
+import type { LineData, ServiceState, StatePoint, StationData } from "./types";
 
 /**
  * Get line state at a given day from sparse state points
@@ -15,7 +15,7 @@ export function getStateAtDay(statePoints: StatePoint[], day: number): ServiceSt
 /**
  * Get station Y position at a given day from sparse position points
  */
-export function getStationYAtDay(station: StationIR, day: number): number | null {
+export function getStationYAtDay(station: StationData, day: number): number | null {
   if (day < station.existsFromDay) return null;
 
   let y: number | null = null;
@@ -29,7 +29,7 @@ export function getStationYAtDay(station: StationIR, day: number): number | null
 /**
  * Get station service state at a given day
  */
-export function getStationStateAtDay(station: StationIR, day: number): ServiceState {
+export function getStationStateAtDay(station: StationData, day: number): ServiceState {
   if (!station.service || station.service.length === 0) {
     return day >= station.existsFromDay ? (1 as ServiceState) : (0 as ServiceState);
   }
@@ -47,8 +47,8 @@ export function hexToRgb(hex: string): [number, number, number] {
 /**
  * Get active stations for a line at a given day
  */
-export function getActiveStations(line: LineIR, day: number) {
-  const activeStations: { station: StationIR; y: number; state: ServiceState }[] = [];
+export function getActiveStations(line: LineData, day: number) {
+  const activeStations: { station: StationData; y: number; state: ServiceState }[] = [];
   let minY = Infinity;
   let maxY = -Infinity;
 

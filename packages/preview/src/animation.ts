@@ -1,8 +1,8 @@
 import type { State } from "vanjs-core";
 import type { ControlsState } from "./controls";
-import type { PreviewIR } from "./types";
+import type { PreviewData } from "./types";
 
-export function useAnimation(data: State<PreviewIR | null>, controlsState: ControlsState) {
+export function useAnimation(data: State<PreviewData | null>, controlsState: ControlsState) {
   let lastFrameTime = 0;
 
   /**

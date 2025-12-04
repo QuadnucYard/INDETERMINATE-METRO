@@ -17,7 +17,7 @@ export interface StationPoint {
   y: number;
 }
 
-export interface StationIR {
+export interface StationData {
   id: string;
   name: string;
   translation?: string;
@@ -26,25 +26,25 @@ export interface StationIR {
   service?: StatePoint[];
 }
 
-export interface LineIR {
+export interface LineData {
   id: string;
   name?: string;
   colorHex: string;
   x: number;
   ridership: number[]; // raw ridership in 万人 (10k passengers) per day
   statePoints: StatePoint[];
-  stations: StationIR[];
+  stations: StationData[];
 }
 
-export interface IRMeta {
+export interface PreviewMeta {
   width: number;
   height: number;
   days: string[];
 }
 
-export interface PreviewIR {
-  meta: IRMeta;
-  lines: Record<string, LineIR>;
+export interface PreviewData {
+  meta: PreviewMeta;
+  lines: Record<string, LineData>;
 }
 
 export interface RenderStyle {

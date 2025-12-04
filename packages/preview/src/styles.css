@@ -1,11 +1,19 @@
 :root {
-  --bg-color: #0a0a0f;
-  --panel-bg: #1a1a24;
-  --text-color: #e0e0e0;
-  --text-muted: #888;
-  --accent: #dd434d;
-  --border: #333;
-  --control-height: 60px;
+  --bg-color: black;
+  /* deep indigo panel */
+  --panel-bg: #1a3062;
+  /* Brighter variation of the panel for subtle surfaces */
+  --panel-bright: color-mix(in srgb, var(--panel-bg) 25%, white 12%);
+  /* Surface variation for controls and buttons */
+  --surface: color-mix(in srgb, var(--panel-bg) 10%, white 6%);
+  --surface-hover: color-mix(in srgb, var(--panel-bg) 14%, white 12%);
+  /* Text colors: high contrast for readability */
+  --text-color: color-mix(in srgb, white 92%, var(--panel-bg) 8%);
+  --text-muted: color-mix(in srgb, var(--text-color) 70%, var(--panel-bg) 30%);
+  /* Accent color chosen for contrast with the indigo background */
+  --accent: #de0010;
+  /* Borders and separators */
+  --border: color-mix(in srgb, var(--panel-bg) 30%, black 40%);
 }
 
 * {
@@ -225,7 +233,7 @@ body {
   height: 1.5rem;
   border: none;
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--surface);
   color: var(--text-color);
   font-size: 0.875rem;
   cursor: pointer;
@@ -235,10 +243,11 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  user-select: none;
 }
 
 .playback-controls button:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--surface-hover);
 }
 
 .playback-controls button:active {
@@ -251,7 +260,7 @@ body {
 }
 
 #play-btn:hover {
-  background: #e5545d;
+  background: color-mix(in srgb, var(--accent) 80%, white 20%);
 }
 
 /* Responsive */

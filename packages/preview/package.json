@@ -5,7 +5,10 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "fmt": "biome format --write",
+    "lint": "biome lint --write",
+    "check": "biome check --write"
   },
   "devDependencies": {
     "typescript": "^5.9.3",

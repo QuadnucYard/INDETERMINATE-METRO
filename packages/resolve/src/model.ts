@@ -142,6 +142,15 @@ export class MetroModel {
       const exceptSet = new Set(spec.except);
       return subset.filter((s) => !exceptSet.has(s));
     }
+    if (subset.length === 0) {
+      console.warn(
+        `[WARNING] No stations resolved for line '${lineId}' from '${spec.from}' (${start}) to '${spec.to}' (${end}). The current station states are: ${Array.from(
+          lineState.stations.entries(),
+        )
+          .map(([sid, st]) => `${sid}: ${ServiceState[st.state]}`)
+          .join(", ")}`,
+      );
+    }
     return subset;
   }
 

@@ -1,5 +1,7 @@
 import type { EmitterConfig, Particle, StrokeSegment, Vec2 } from "./types";
 
+const SPEED_SCALE = 5.0;
+
 /**
  * High-performance particle system with pooling and sprite caching
  */
@@ -101,7 +103,8 @@ export class ParticleSystem {
       // Velocity
       const angleDeg = (cfg.angle ?? 0) + ((Math.random() * 2 - 1) * (cfg.spread ?? 180)) / 2;
       const angle = (angleDeg * Math.PI) / 180;
-      const speed = Math.max(0, cfg.speed + (Math.random() * 2 - 1) * (cfg.speedVar ?? 0));
+      const speed =
+        Math.max(0, cfg.speed + (Math.random() * 2 - 1) * (cfg.speedVar ?? 0)) * SPEED_SCALE;
       p.vel.x = Math.cos(angle) * speed;
       p.vel.y = Math.sin(angle) * speed;
       p.rotation = Math.random() * Math.PI * 2;

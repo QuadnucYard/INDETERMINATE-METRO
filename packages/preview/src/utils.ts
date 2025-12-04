@@ -1,29 +1,19 @@
-import type { LineData, ServiceState, StatePoint, StationData } from "./types";
+import { type LineData, ServiceState, type StatePoint, type StationData } from "./types";
 
 /**
  * Get line state at a given day from sparse state points
  */
 export function getStateAtDay(statePoints: StatePoint[], day: number): ServiceState {
-  let state = 0 as ServiceState; // Never
-  for (const pt of statePoints) {
-    if (pt.day > day) break;
-    state = pt.state;
-  }
-  return state;
+  return statePoints.findLast((p) => p.day <= day)?.state ?? ServiceState.Never;
 }
 
 /**
  * Get station Y position at a given day from sparse position points
  */
-export function getStationYAtDay(station: StationData, day: number): number | null {
-  if (day < station.existsFromDay) return null;
+export function getStationYAtDay(station: StationData, day: number): number | undefined {
+  if (day < station.existsFromDay) return undefined;
 
-  let y: number | null = null;
-  for (const pt of station.positions) {
-    if (pt.day > day) break;
-    y = pt.y;
-  }
-  return y;
+  return station.positions.findLast((p) => p.day <= day)?.y;
 }
 
 /**
@@ -31,7 +21,7 @@ export function getStationYAtDay(station: StationData, day: number): number | nu
  */
 export function getStationStateAtDay(station: StationData, day: number): ServiceState {
   if (!station.service || station.service.length === 0) {
-    return day >= station.existsFromDay ? (1 as ServiceState) : (0 as ServiceState);
+    return day >= station.existsFromDay ? ServiceState.Open : ServiceState.Never;
   }
   return getStateAtDay(station.service, day);
 }
@@ -46,18 +36,24 @@ export function hexToRgb(hex: string): [number, number, number] {
 
 /**
  * Get active stations for a line at a given day
+ * If animatedPositions is provided, use those Y values instead of static ones
  */
-export function getActiveStations(line: LineData, day: number) {
+export function getActiveStations(
+  line: LineData,
+  day: number,
+  stationPositions?: Map<string, number>,
+) {
   const activeStations: { station: StationData; y: number; state: ServiceState }[] = [];
   let minY = Infinity;
   let maxY = -Infinity;
 
   for (const station of line.stations) {
     const stState = getStationStateAtDay(station, day);
-    if (stState === 0 || stState === 3) continue; // Never or Closed
+    if (stState === ServiceState.Never || stState === ServiceState.Closed) continue;
 
-    const y = getStationYAtDay(station, day);
-    if (y === null) continue;
+    // Use animated position if available, otherwise fall back to static
+    const y = stationPositions?.get(station.id) ?? getStationYAtDay(station, day);
+    if (y === undefined) continue;
 
     activeStations.push({ station, y, state: stState });
     minY = Math.min(minY, y);

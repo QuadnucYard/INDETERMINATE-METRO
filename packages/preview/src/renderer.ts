@@ -3,9 +3,11 @@ import van from "vanjs-core";
 import type { ControlsState } from "./controls";
 import { ParticleAnimator } from "./particle/animator";
 import { ParticleSystem } from "./particle/system";
+import { PositionAnimator } from "./position-animator";
 import { type LineData, type PreviewData, type RenderStyle, ServiceState } from "./types";
 import { getActiveStations, getStateAtDay, hexToRgb } from "./utils";
 
+const LINE_MARGIN = 5;
 const STATION_RADIUS = 6;
 const STATION_STROKE_WIDTH = 2.5;
 
@@ -53,7 +55,12 @@ export class MetroRenderer {
   /**
    * Render the metro visualization
    */
-  render(data: PreviewData, day: number, styles: RenderStyle) {
+  render(
+    data: PreviewData,
+    day: number,
+    styles: RenderStyle,
+    stationPositions?: Map<string, Map<string, number>>,
+  ) {
     const { lines } = data;
     const dayIndex = Math.floor(day);
 
@@ -73,14 +80,20 @@ export class MetroRenderer {
     for (const lineId in lines) {
       const line = lines[lineId];
       if (line) {
-        this.renderLine(line, dayIndex, styles);
+        const linePositions = stationPositions?.get(lineId);
+        this.renderLine(line, dayIndex, styles, linePositions);
       }
     }
 
     this.ctx.restore();
   }
 
-  private renderLine(line: LineData, day: number, styles: RenderStyle) {
+  private renderLine(
+    line: LineData,
+    day: number,
+    styles: RenderStyle,
+    stationPositions?: Map<string, number>,
+  ) {
     const lineState = getStateAtDay(line.statePoints, day);
     if (lineState === ServiceState.Never || lineState === ServiceState.Closed) return;
 
@@ -91,15 +104,15 @@ export class MetroRenderer {
     const ridership = line.ridership[day] ?? line.ridership[line.ridership.length - 1] ?? 0;
     const widthPx = calculateWidth(ridership / 100) * styles.widthScale;
 
-    const { activeStations, minY, maxY } = getActiveStations(line, day);
+    const { activeStations, minY, maxY } = getActiveStations(line, day, stationPositions);
     if (activeStations.length === 0) return;
 
     const ctx = this.ctx;
 
     // Draw the line stem
     ctx.beginPath();
-    ctx.moveTo(line.x, minY);
-    ctx.lineTo(line.x, maxY);
+    ctx.moveTo(line.x, minY - LINE_MARGIN);
+    ctx.lineTo(line.x, maxY + LINE_MARGIN);
     ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${opacity})`;
     ctx.lineWidth = widthPx;
     ctx.lineCap = "round";
@@ -162,16 +175,33 @@ function useMetroRenderer(
   styles: State<RenderStyle>,
 ) {
   const renderer = new MetroRenderer();
+  const positionAnimator = new PositionAnimator();
+  let animatedPositions: Map<string, Map<string, number>> | undefined;
 
   const render = (data: PreviewData) => {
-    // Render frame
-    renderer.render(data, controlsState.currentDay.val, styles.val);
+    // Update animated positions
+    animatedPositions = positionAnimator.update(
+      data,
+      controlsState.currentDay.val,
+      performance.now(),
+    );
+    // Render frame with animated positions
+    renderer.render(data, controlsState.currentDay.val, styles.val, animatedPositions);
   };
 
   const resize = (data: PreviewData, rect: Rect) => {
     renderer.resize(rect, data.meta);
     render(data);
   };
+
+  // Independent animation loop for position transitions
+  function animate() {
+    if (data.val && positionAnimator.isAnimating(performance.now())) {
+      render(data.val);
+    }
+    requestAnimationFrame(animate);
+  }
+  animate();
 
   van.derive(() => {
     if (data.val) {

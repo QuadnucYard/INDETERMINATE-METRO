@@ -1,5 +1,10 @@
 // Preview IR types - mirrors the IR structure from resolve package
 
+export type Rect = {
+  width: number;
+  height: number;
+};
+
 export enum ServiceState {
   Never = 0,
   Open = 1,

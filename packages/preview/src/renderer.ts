@@ -4,17 +4,18 @@ import type { ControlsState } from "./controls";
 import { ParticleAnimator } from "./particle/animator";
 import { ParticleSystem } from "./particle/system";
 import { PositionAnimator } from "./position-animator";
-import { type LineData, type PreviewData, type RenderStyle, ServiceState } from "./types";
+import {
+  type LineData,
+  type PreviewData,
+  type Rect,
+  type RenderStyle,
+  ServiceState,
+} from "./types";
 import { getActiveStations, getStateAtDay, hexToRgb } from "./utils";
 
 const LINE_MARGIN = 5;
 const STATION_RADIUS = 6;
 const STATION_STROKE_WIDTH = 2.5;
-
-type Rect = {
-  width: number;
-  height: number;
-};
 
 export class MetroRenderer {
   private ctx: CanvasRenderingContext2D;
@@ -35,27 +36,27 @@ export class MetroRenderer {
   /**
    * Resize canvas to given dimensions while maintaining aspect ratio
    */
-  resize(rect: Rect, meta: Rect) {
-    const aspectRatio = meta.width / meta.height;
+  public resize(rect: Rect, refRect: Rect) {
+    const aspectRatio = refRect.width / refRect.height;
     const containerRatio = rect.width / rect.height;
 
     if (containerRatio > aspectRatio) {
       // Container is wider - fit to height
-      this.canvas.height = rect.height;
       this.canvas.width = rect.height * aspectRatio;
-      this.scale = rect.height / meta.height;
+      this.canvas.height = rect.height;
+      this.scale = rect.height / refRect.height;
     } else {
       // Container is taller - fit to width
       this.canvas.width = rect.width;
       this.canvas.height = rect.width / aspectRatio;
-      this.scale = rect.width / meta.width;
+      this.scale = rect.width / refRect.width;
     }
   }
 
   /**
    * Render the metro visualization
    */
-  render(
+  public render(
     data: PreviewData,
     day: number,
     styles: RenderStyle,
@@ -85,7 +86,7 @@ export class MetroRenderer {
       }
     }
 
-    this.ctx.restore();
+    ctx.restore();
   }
 
   private renderLine(
@@ -213,7 +214,7 @@ function useMetroRenderer(
 }
 
 function useParticleRenderer(data: State<PreviewData | null>, controlsState: ControlsState) {
-  const particleSystem = new ParticleSystem(1920, 1080);
+  const particleSystem = new ParticleSystem(960, 540);
   particleSystem.initPool(2000);
 
   const particleAnimator = new ParticleAnimator(particleSystem);
@@ -240,11 +241,16 @@ function useParticleRenderer(data: State<PreviewData | null>, controlsState: Con
     }
   };
 
+  const resize = (data: PreviewData, rect: Rect) => {
+    particleSystem.resize(rect, data.meta);
+    render();
+  };
+
   van.derive(() => {
     render();
   });
 
-  return { canvas: particleSystem.getCanvas() };
+  return { resize, canvas: particleSystem.getCanvas() };
 }
 
 export function useRenderer(
@@ -263,19 +269,19 @@ export function useRenderer(
     particleRenderer.canvas,
   );
 
-  const pendingResize = van.state<Rect | null>(null);
+  const canvasSize = van.state<Rect | null>(null);
 
   van.derive(() => {
-    if (data.val && pendingResize.val) {
-      metroRenderer.resize(data.val, pendingResize.val);
-      pendingResize.val = null;
+    if (data.val && canvasSize.val) {
+      metroRenderer.resize(data.val, canvasSize.val);
+      particleRenderer.resize(data.val, canvasSize.val);
     }
   });
 
   const resizeObserver = new ResizeObserver((entries) => {
     const entry = entries[0];
     if (entry) {
-      pendingResize.val = entry.contentRect;
+      canvasSize.val = entry.contentRect;
     }
   });
   resizeObserver.observe(canvasContainer);

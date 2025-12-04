@@ -1,3 +1,4 @@
+import type { Rect } from "../types";
 import type { EmitterConfig, Particle, StrokeSegment, Vec2 } from "./types";
 
 const SPEED_SCALE = 5.0;
@@ -10,6 +11,7 @@ export class ParticleSystem {
   private active: Particle[] = [];
   private spriteCache = new Map<string, HTMLCanvasElement>();
   private canvas: HTMLCanvasElement;
+  private scale: number = 1;
   private ctx: CanvasRenderingContext2D;
 
   constructor(width: number, height: number) {
@@ -31,9 +33,21 @@ export class ParticleSystem {
   /**
    * Resize particle canvas
    */
-  public resize(width: number, height: number) {
-    this.canvas.width = width;
-    this.canvas.height = height;
+  public resize(rect: Rect, refRect: Rect) {
+    const aspectRatio = refRect.width / refRect.height;
+    const containerRatio = rect.width / rect.height;
+
+    if (containerRatio > aspectRatio) {
+      // Container is wider - fit to height
+      this.canvas.height = rect.height;
+      this.canvas.width = rect.height * aspectRatio;
+      this.scale = rect.height / refRect.height;
+    } else {
+      // Container is taller - fit to width
+      this.canvas.width = rect.width;
+      this.canvas.height = rect.width / aspectRatio;
+      this.scale = rect.width / refRect.width;
+    }
   }
 
   /**
@@ -119,6 +133,9 @@ export class ParticleSystem {
     const ctx = this.ctx;
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
+    ctx.save();
+    ctx.scale(this.scale, this.scale); // Fit reference size into canvas
+
     // Update and render active particles
     for (let i = this.active.length - 1; i >= 0; i--) {
       const p = this.active[i];
@@ -154,6 +171,8 @@ export class ParticleSystem {
       ctx.drawImage(sprite, -s / 2, -s / 2, s, s);
       ctx.restore();
     }
+
+    ctx.restore();
   }
 
   private createEmpty(): Particle {

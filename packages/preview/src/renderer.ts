@@ -1,7 +1,7 @@
 import type { State } from "vanjs-core";
 import van from "vanjs-core";
 import type { ControlsState } from "./controls";
-import type { LineIR, PreviewIR, RenderStyle } from "./types";
+import { ServiceState, type LineIR, type PreviewIR, type RenderStyle } from "./types";
 import { getActiveStations, getStateAtDay, hexToRgb } from "./utils";
 
 const STATION_RADIUS = 6;
@@ -19,12 +19,21 @@ export class MetroRenderer {
   }
 
   /**
-   * Resize canvas to given dimensions
+   * Resize canvas to given dimensions while maintaining aspect ratio
    */
-  resize(rect: { width: number; height: number }): boolean {
-    this.canvas.width = rect.width;
-    this.canvas.height = rect.height;
-    return true;
+  resize(rect: { width: number; height: number }, meta: { width: number; height: number }) {
+    const aspectRatio = meta.width / meta.height;
+    const containerRatio = rect.width / rect.height;
+
+    if (containerRatio > aspectRatio) {
+      // Container is wider - fit to height
+      this.canvas.height = rect.height;
+      this.canvas.width = rect.height * aspectRatio;
+    } else {
+      // Container is taller - fit to width
+      this.canvas.width = rect.width;
+      this.canvas.height = rect.width / aspectRatio;
+    }
   }
 
   /**
@@ -43,16 +52,10 @@ export class MetroRenderer {
     // Clear canvas
     ctx.clearRect(0, 0, canvasWidth, canvasHeight);
 
-    // Calculate scale to fit reference size (meta.compW x meta.compH) into canvas
-    // while maintaining aspect ratio
+    // Calculate scale to fit reference size into canvas
     const scale = Math.min(canvasWidth / meta.width, canvasHeight / meta.height);
 
-    // Center the composition
-    const offsetX = (canvasWidth - meta.width * scale) / 2;
-    const offsetY = (canvasHeight - meta.height * scale) / 2;
-
     ctx.save();
-    ctx.translate(offsetX, offsetY);
     ctx.scale(scale, scale);
 
     // Render each line in reference coordinate space
@@ -68,10 +71,10 @@ export class MetroRenderer {
 
   private renderLine(line: LineIR, day: number, styles: RenderStyle) {
     const lineState = getStateAtDay(line.statePoints, day);
-    if (lineState === 0 || lineState === 3) return; // Never or Closed
+    if (lineState === ServiceState.Never || lineState === ServiceState.Closed) return;
 
     const [r, g, b] = hexToRgb(line.colorHex);
-    const opacity = lineState === 2 ? 0.4 : 1; // Suspended : Open
+    const opacity = lineState === ServiceState.Suspended ? 0.4 : 1;
 
     // Calculate width from raw ridership
     const ridership = line.ridership[day] ?? line.ridership[line.ridership.length - 1] ?? 0;
@@ -89,11 +92,13 @@ export class MetroRenderer {
     ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${opacity})`;
     ctx.lineWidth = widthPx;
     ctx.lineCap = "round";
+    ctx.shadowBlur = widthPx;
+    ctx.shadowColor = ctx.strokeStyle;
     ctx.stroke();
 
     // Draw station circles
     for (const { station, y, state } of activeStations) {
-      const stOpacity = state === 2 ? 0.4 : 1; // Suspended : Open
+      const stOpacity = state === ServiceState.Suspended ? 0.4 : 1;
 
       // Fill circle (white/light)
       ctx.beginPath();
@@ -165,7 +170,9 @@ export function useRenderer(
   const resizeObserver = new ResizeObserver((entries) => {
     const entry = entries[0];
     if (!entry) return;
-    renderer?.resize(entry.contentRect);
+    if (data.val) {
+      renderer?.resize(entry.contentRect, data.val.meta);
+    }
     render();
   });
   resizeObserver.observe(canvasContainer);

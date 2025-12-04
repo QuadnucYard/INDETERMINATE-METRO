@@ -1,27 +1,39 @@
 import type { State } from "vanjs-core";
 import van from "vanjs-core";
 import type { ControlsState } from "./controls";
+import { ParticleAnimator } from "./particle/animator";
+import { ParticleSystem } from "./particle/system";
 import { type LineData, type PreviewData, type RenderStyle, ServiceState } from "./types";
 import { getActiveStations, getStateAtDay, hexToRgb } from "./utils";
 
 const STATION_RADIUS = 6;
 const STATION_STROKE_WIDTH = 2.5;
 
+type Rect = {
+  width: number;
+  height: number;
+};
+
 export class MetroRenderer {
   private ctx: CanvasRenderingContext2D;
   private canvas: HTMLCanvasElement;
+  private scale: number = 1;
 
-  constructor(canvas: HTMLCanvasElement) {
-    this.canvas = canvas;
-    const ctx = canvas.getContext("2d");
+  constructor() {
+    this.canvas = document.createElement("canvas");
+    const ctx = this.canvas.getContext("2d");
     if (!ctx) throw new Error("Canvas 2D context not available");
     this.ctx = ctx;
+  }
+
+  public getCanvas(): HTMLCanvasElement {
+    return this.canvas;
   }
 
   /**
    * Resize canvas to given dimensions while maintaining aspect ratio
    */
-  resize(rect: { width: number; height: number }, meta: { width: number; height: number }) {
+  resize(rect: Rect, meta: Rect) {
     const aspectRatio = meta.width / meta.height;
     const containerRatio = rect.width / rect.height;
 
@@ -29,10 +41,12 @@ export class MetroRenderer {
       // Container is wider - fit to height
       this.canvas.height = rect.height;
       this.canvas.width = rect.height * aspectRatio;
+      this.scale = rect.height / meta.height;
     } else {
       // Container is taller - fit to width
       this.canvas.width = rect.width;
       this.canvas.height = rect.width / aspectRatio;
+      this.scale = rect.width / meta.width;
     }
   }
 
@@ -40,7 +54,7 @@ export class MetroRenderer {
    * Render the metro visualization
    */
   render(data: PreviewData, day: number, styles: RenderStyle) {
-    const { meta, lines } = data;
+    const { lines } = data;
     const dayIndex = Math.floor(day);
 
     // Get canvas physical dimensions
@@ -52,11 +66,8 @@ export class MetroRenderer {
     // Clear canvas
     ctx.clearRect(0, 0, canvasWidth, canvasHeight);
 
-    // Calculate scale to fit reference size into canvas
-    const scale = Math.min(canvasWidth / meta.width, canvasHeight / meta.height);
-
     ctx.save();
-    ctx.scale(scale, scale);
+    ctx.scale(this.scale, this.scale); // Fit reference size into canvas
 
     // Render each line in reference coordinate space
     for (const lineId in lines) {
@@ -66,7 +77,7 @@ export class MetroRenderer {
       }
     }
 
-    ctx.restore();
+    this.ctx.restore();
   }
 
   private renderLine(line: LineData, day: number, styles: RenderStyle) {
@@ -145,19 +156,57 @@ function calculateWidth(baseValue: number, basePx = 2, scalePx = 20, gamma = 0.6
   return basePx + baseValue ** gamma * scalePx;
 }
 
-export function useRenderer(
+function useMetroRenderer(
   data: State<PreviewData | null>,
   controlsState: ControlsState,
   styles: State<RenderStyle>,
 ) {
-  const { div, canvas } = van.tags;
+  const renderer = new MetroRenderer();
 
-  const canvasElem = canvas();
-  const renderer = new MetroRenderer(canvasElem);
+  const render = (data: PreviewData) => {
+    // Render frame
+    renderer.render(data, controlsState.currentDay.val, styles.val);
+  };
+
+  const resize = (data: PreviewData, rect: Rect) => {
+    renderer.resize(rect, data.meta);
+    render(data);
+  };
+
+  van.derive(() => {
+    if (data.val) {
+      render(data.val);
+    }
+  });
+
+  return { resize, canvas: renderer.getCanvas() };
+}
+
+function useParticleRenderer(data: State<PreviewData | null>, controlsState: ControlsState) {
+  const particleSystem = new ParticleSystem(1920, 1080);
+  particleSystem.initPool(2000);
+
+  const particleAnimator = new ParticleAnimator(particleSystem);
+
+  let lastTime = performance.now();
+
+  // Independent particle update loop
+  function updateParticles() {
+    const now = performance.now();
+    const dt = (now - lastTime) / 1000;
+    lastTime = now;
+
+    if (data.val) {
+      particleSystem.update(dt * controlsState.speed.val * 0.1);
+    }
+    requestAnimationFrame(updateParticles);
+  }
+  updateParticles();
 
   const render = () => {
-    if (data.val && renderer) {
-      renderer.render(data.val, controlsState.currentDay.val, styles.val);
+    if (data.val) {
+      // Update particle animator
+      particleAnimator.update(data.val, controlsState.currentDay.val);
     }
   };
 
@@ -165,17 +214,41 @@ export function useRenderer(
     render();
   });
 
-  const canvasContainer = div({ class: "canvas-container" }, canvasElem);
+  return { canvas: particleSystem.getCanvas() };
+}
+
+export function useRenderer(
+  data: State<PreviewData | null>,
+  controlsState: ControlsState,
+  styles: State<RenderStyle>,
+) {
+  const { div } = van.tags;
+
+  const metroRenderer = useMetroRenderer(data, controlsState, styles);
+  const particleRenderer = useParticleRenderer(data, controlsState);
+
+  const canvasContainer = div(
+    { class: "canvas-container" },
+    metroRenderer.canvas,
+    particleRenderer.canvas,
+  );
+
+  const pendingResize = van.state<Rect | null>(null);
+
+  van.derive(() => {
+    if (data.val && pendingResize.val) {
+      metroRenderer.resize(data.val, pendingResize.val);
+      pendingResize.val = null;
+    }
+  });
 
   const resizeObserver = new ResizeObserver((entries) => {
     const entry = entries[0];
-    if (!entry) return;
-    if (data.val) {
-      renderer?.resize(entry.contentRect, data.val.meta);
+    if (entry) {
+      pendingResize.val = entry.contentRect;
     }
-    render();
   });
   resizeObserver.observe(canvasContainer);
 
-  return { renderer, canvasContainer };
+  return { canvasContainer };
 }

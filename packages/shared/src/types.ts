@@ -21,8 +21,11 @@ export type KeyedState = Keyed<{ state: ServiceState }>;
 
 export type StationPoint = Keyed<Vec2>;
 
+export type LineId = string;
+export type StationId = string;
+
 export type StationData = {
-  id: string;
+  id: StationId;
   name: string;
   translation?: string;
   existsFromDay: number;
@@ -33,7 +36,7 @@ export type StationData = {
 };
 
 export type LineData = {
-  id: string;
+  id: LineId;
   name?: string;
   colorHex: string;
   x: number;
@@ -51,5 +54,5 @@ export type PreviewMeta = {
 
 export type PreviewData = {
   meta: PreviewMeta;
-  lines: Record<string, LineData>;
+  lines: Record<LineId, LineData>;
 };

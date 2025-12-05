@@ -4,6 +4,7 @@ import {
   type LineData,
   ServiceState,
   type StationData,
+  type StationId,
   type Vec2,
 } from "./types";
 
@@ -40,7 +41,7 @@ export function getStationStateAtDay(station: StationData, day: number): Service
 export function getActiveStations(
   line: LineData,
   day: number,
-  stationPositions?: Map<string, Vec2>,
+  stationPositions?: Map<StationId, Vec2>,
 ): ActiveLineStations {
   const activeStations: { station: StationData; pos: Vec2; state: ServiceState }[] = [];
 

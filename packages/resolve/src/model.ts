@@ -1,4 +1,4 @@
-import { ServiceState } from "im-shared/types";
+import { type LineId, ServiceState, type StationId } from "im-shared/types";
 import type { EventRecord, LineMeta, StationsSpec } from "./types";
 
 export interface StationState {
@@ -8,18 +8,18 @@ export interface StationState {
 export interface LineState {
   /** Should be either `Never` or `Open` */
   state: ServiceState;
-  stations: Map<string, StationState>; // stationId -> state
+  stations: Map<StationId, StationState>; // stationId -> state
 }
 
 export interface Snapshot {
   lineState: ServiceState;
-  stationStates: Map<string, ServiceState>;
+  stationStates: Map<LineId, ServiceState>;
 }
 
 export class MetroModel {
-  lines: Map<string, LineState>;
-  lineMeta: Map<string, LineMeta>;
-  stationOrder: Map<string, string[]>; // lineId -> ordered station IDs
+  lines: Map<LineId, LineState>;
+  lineMeta: Map<LineId, LineMeta>;
+  stationOrder: Map<LineId, StationId[]>; // lineId -> ordered station IDs
 
   constructor(metas: LineMeta[]) {
     this.lines = new Map();
@@ -33,7 +33,7 @@ export class MetroModel {
       this.stationOrder.set(m.id, stationIds);
 
       // Initialize line state
-      const stationMap = new Map<string, StationState>();
+      const stationMap = new Map<StationId, StationState>();
       for (const sid of stationIds) {
         stationMap.set(sid, { state: ServiceState.Never });
       }
@@ -44,7 +44,7 @@ export class MetroModel {
     }
   }
 
-  private getLineState(lineId: string): LineState {
+  private getLineState(lineId: LineId): LineState {
     const line = this.lines.get(lineId);
     if (!line) {
       throw new Error(`Unknown line ID '${lineId}'`);
@@ -60,7 +60,7 @@ export class MetroModel {
     );
     const newState = parseEvent(event.type);
 
-    const getStation = (sid: string) => {
+    const getStation = (sid: StationId) => {
       const st = line.stations.get(sid);
       if (!st) {
         throw new Error(`Unknown station ID '${sid}' on line '${event.line}' when getting state`);
@@ -95,7 +95,7 @@ export class MetroModel {
     }
   }
 
-  private resolveStations(lineId: string, spec: StationsSpec): string[] {
+  private resolveStations(lineId: LineId, spec: StationsSpec): StationId[] {
     const allStations = this.stationOrder.get(lineId);
     if (!allStations) {
       throw new Error(`Unknown line ID '${lineId}' when resolving stations`);
@@ -154,10 +154,10 @@ export class MetroModel {
     return subset;
   }
 
-  public snapshot(lineId: string): Snapshot {
+  public snapshot(lineId: LineId): Snapshot {
     const line = this.getLineState(lineId);
 
-    const sMap = new Map<string, ServiceState>();
+    const sMap = new Map<StationId, ServiceState>();
     for (const [sid, st] of line.stations) {
       sMap.set(sid, st.state);
     }

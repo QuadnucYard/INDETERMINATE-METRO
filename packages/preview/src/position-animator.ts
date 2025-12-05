@@ -1,4 +1,4 @@
-import type { LineData, PreviewData, StationData, Vec2 } from "./types";
+import type { LineData, LineId, PreviewData, StationData, StationId, Vec2 } from "./types";
 import { getStationPositionAtDay } from "./utils";
 
 interface AnimatedPosition {
@@ -19,7 +19,7 @@ const INSERTION_DURATION = 300;
  */
 export class PositionAnimator {
   // lineId -> stationId -> AnimatedPosition
-  private positions = new Map<string, Map<string, AnimatedPosition>>();
+  private positions = new Map<LineId, Map<StationId, AnimatedPosition>>();
 
   /**
    * Update target positions based on current day
@@ -29,10 +29,10 @@ export class PositionAnimator {
     data: PreviewData,
     currentDay: number,
     now: number,
-  ): Map<string, Map<string, Vec2>> {
+  ): Map<LineId, Map<StationId, Vec2>> {
     const day = Math.floor(currentDay);
 
-    const result = new Map<string, Map<string, Vec2>>();
+    const result = new Map<LineId, Map<StationId, Vec2>>();
 
     for (const [lineId, line] of Object.entries(data.lines)) {
       const linePositions = this.getOrCreateLineMap(lineId);
@@ -47,7 +47,7 @@ export class PositionAnimator {
   }
 
   private updateLinePositions(
-    linePositions: Map<string, AnimatedPosition>,
+    linePositions: Map<StationId, AnimatedPosition>,
     line: LineData,
     day: number,
     now: number,
@@ -121,7 +121,7 @@ export class PositionAnimator {
     return false;
   }
 
-  private getOrCreateLineMap(lineId: string): Map<string, AnimatedPosition> {
+  private getOrCreateLineMap(lineId: LineId): Map<StationId, AnimatedPosition> {
     let map = this.positions.get(lineId);
     if (!map) {
       map = new Map();
@@ -143,9 +143,9 @@ export class PositionAnimator {
  * Returns the Y position between existing animated stations based on their order.
  */
 function findInsertionPoint(
-  stationId: string,
+  stationId: StationId,
   stationTargets: readonly { station: StationData; target: Vec2; index: number }[],
-  linePositions: ReadonlyMap<string, AnimatedPosition>,
+  linePositions: ReadonlyMap<StationId, AnimatedPosition>,
 ): Vec2 {
   // Find the index for the requested station
   const current = stationTargets.find((st) => st.station.id === stationId);

@@ -8,10 +8,12 @@ import { PositionAnimator } from "./position-animator";
 import {
   type ActiveLineStations,
   type LineData,
+  type LineId,
   type PreviewData,
   type Rect,
   type RenderStyle,
   ServiceState,
+  type StationId,
   type Vec2,
 } from "./types";
 import { getActiveStations, getStateAtDay } from "./utils";
@@ -64,12 +66,12 @@ export class MetroRenderer {
     data: PreviewData,
     day: number,
     styles: RenderStyle,
-    stationPositions?: Map<string, Map<string, Vec2>>,
+    stationPositions?: Map<LineId, Map<StationId, Vec2>>,
   ) {
     // Collect render data for all lines
     type LineRenderData = {
       line: LineData;
-      positions: Map<string, Vec2> | undefined;
+      positions?: Map<StationId, Vec2>;
       activeStations: ActiveLineStations;
       widthPx: number;
       opacity: number;
@@ -230,7 +232,7 @@ function useMetroRenderer(
 ) {
   const renderer = new MetroRenderer();
   const positionAnimator = new PositionAnimator();
-  let animatedPositions: Map<string, Map<string, Vec2>> | undefined;
+  let animatedPositions: Map<LineId, Map<StationId, Vec2>> | undefined;
 
   const render = (data: PreviewData) => {
     // Update animated positions

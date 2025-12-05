@@ -3,9 +3,11 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import {
   type LineData,
+  type LineId,
   type PreviewData,
   type PreviewMeta,
   ServiceState,
+  type StationId,
   type Vec2,
 } from "im-shared/types";
 import { calculateStationPositions } from "./layout";
@@ -27,7 +29,7 @@ const CONFIG = {
 };
 
 function simulate(
-  ridershipMap: Map<string, Record<string, number>>,
+  ridershipMap: Map<LineId, Record<StationId, number>>,
   sortedDays: string[],
   eventsRaw: EventRecord[],
   linesMeta: LineMeta[],
@@ -36,7 +38,7 @@ function simulate(
   const model = new MetroModel(linesMeta);
 
   // Initialize IR structures
-  const linesIR: Record<string, LineData> = {};
+  const linesIR: Record<LineId, LineData> = {};
 
   // Pre-fill linesIR with static data
   linesMeta.forEach((lm, index) => {
@@ -61,23 +63,23 @@ function simulate(
   });
 
   // Helper to find station IR object
-  const getStationIR = (lineId: string, stationName: string) => {
-    const station = linesIR[lineId]?.stations.find((s) => s.name === stationName);
+  const getStationIR = (lineId: LineId, stationId: StationId) => {
+    const station = linesIR[lineId]?.stations.find((s) => s.id === stationId);
     if (!station) {
-      throw new Error(`Station IR not found for ${stationName} on line ${lineId}`);
+      throw new Error(`Station IR not found for ${stationId} on line ${lineId}`);
     }
     return station;
   };
 
   // Track previous positions to detect changes
   // lineId -> stationName -> lastXPos
-  const lastPositions = new Map<string, Map<string, Vec2>>(
+  const lastPositions = new Map<LineId, Map<StationId, Vec2>>(
     linesMeta.map((lm) => [lm.id, new Map()]),
   );
 
   // Track previous states to detect changes
-  const lastLineStates = new Map<string, ServiceState>();
-  const lastStationStates = new Map<string, Map<string, ServiceState>>(
+  const lastLineStates = new Map<LineId, ServiceState>();
+  const lastStationStates = new Map<LineId, Map<StationId, ServiceState>>(
     linesMeta.map((lm) => [lm.id, new Map()]),
   );
 
@@ -135,19 +137,19 @@ function simulate(
       );
 
       // Update Station IR
-      for (const [stationName, state] of snapshot.stationStates) {
-        const stIR = getStationIR(lineId, stationName);
-        assert(stIR, `Station IR missing for ${stationName} on line ${lineId}`);
+      for (const [stationId, state] of snapshot.stationStates) {
+        const stIR = getStationIR(lineId, stationId);
+        assert(stIR, `Station IR missing for ${stationId} on line ${lineId}`);
 
         // Service State (Sparse)
         const lineStStates = lastStationStates.get(lineId);
         assert(lineStStates);
-        const lastStState = lineStStates.get(stationName);
+        const lastStState = lineStStates.get(stationId);
 
         if (lastStState !== state) {
           if (!stIR.service) stIR.service = [];
           stIR.service.push({ day: i, state });
-          lineStStates.set(stationName, state);
+          lineStStates.set(stationId, state);
         }
 
         // Exists From Day
@@ -159,16 +161,16 @@ function simulate(
         }
 
         // Position (Sparse)
-        const pos = stationPositions.get(stationName);
+        const pos = stationPositions.get(stationId);
         if (pos !== undefined) {
           // Check if changed
           const lineLastPos = lastPositions.get(lineId);
           assert(lineLastPos);
-          const lastPos = lineLastPos.get(stationName);
+          const lastPos = lineLastPos.get(stationId);
 
           if (!lastPos || lastPos.x !== pos.x || lastPos.y !== pos.y) {
             stIR.positions.push({ day: i, ...pos });
-            lineLastPos.set(stationName, pos);
+            lineLastPos.set(stationId, pos);
           }
         }
       }

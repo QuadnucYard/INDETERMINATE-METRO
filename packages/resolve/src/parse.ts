@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import type { LineId, StationId } from "im-shared/types";
 
 export const loadJson = async <T>(p: string): Promise<T | null> => {
   try {
@@ -22,16 +23,16 @@ export async function loadRidershipData(csvPath: string) {
   const header = headerLine.split(",").map((s) => s.trim());
   // header: date,  <line ids...>
 
-  const ridershipMap = new Map<string, Record<string, number>>();
+  const ridershipMap = new Map<LineId, Record<StationId, number>>();
   const dates: string[] = [];
   for (const line of lines) {
     const row = line.split(",");
     if (row.length < 1) continue;
     const date = (row[0] ?? "").trim();
     if (!date) continue;
-    const counts: Record<string, number> = {};
+    const counts: Record<LineId, number> = {};
     for (let ci = 1; ci < header.length; ci++) {
-      const id = header[ci] as string;
+      const id = header[ci] as LineId;
       const v = row[ci] as string;
       if (v !== "") counts[id] = Number(v);
     }

@@ -1,22 +1,24 @@
+import type { LineId, StationId } from "im-shared/types";
+
 export type LineMeta = {
-  id: string; // line ID, e.g. "1", "S1", etc.
+  id: LineId; // line ID, e.g. "1", "S1", etc.
   color: string; // hex color, e.g. "#ff0000"
   x?: number; // desired x position in pixels
-  stations: [string, string][]; // list of [station name, translation] pairs
+  stations: [StationId, string][]; // list of [station name, translation] pairs
   branchStations?: [string, string][]; // optional list of branch line stations
 };
 
 export type EventRecord = {
   date: string; // "YYYY-MM-DD"
-  line: string; // line ID, e.g. "1", "S1", etc.
+  line: LineId; // line ID, e.g. "1", "S1", etc.
   type: "open" | "close" | "suspend" | "resume";
   stations: StationsSpec;
   fullStations?: StationsSpec; // optional full list of stations for openings
 };
 
 export type StationsSpec =
-  | { from: string; to: string; except?: string[] } // range from 'from' to 'to', with optional exceptions
-  | string[]; // list of station names
+  | { from: StationId; to: StationId; except?: StationId[] } // range from 'from' to 'to', with optional exceptions
+  | StationId[]; // list of station names
 
 // ===
 
@@ -28,7 +30,7 @@ export type AEKeyframe = {
 };
 
 export type AELine = {
-  id: string;
+  id: StationId;
   name: string;
   x: number;
   color: [number, number, number];
@@ -47,6 +49,6 @@ export type AEInput = {
     stationDotBaseSize: number;
   };
   days: string[]; // ISO dates
-  lines: Record<string, AELine>;
+  lines: Record<LineId, AELine>;
   events: EventRecord[];
 };

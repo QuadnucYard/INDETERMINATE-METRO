@@ -1,17 +1,17 @@
 import assert from "node:assert";
-import { ServiceState, type Vec2 } from "im-shared/types";
+import { ServiceState, type StationId, type Vec2 } from "im-shared/types";
 
 /**
  * Calculate station positions, reserving space for all stations between first and last active.
  * This ensures deferred stations (in fullStations but not yet open) have positions reserved.
  */
 export function calculateStationPositions(
-  allStations: string[],
-  stationStates: Map<string, ServiceState>,
+  allStations: StationId[],
+  stationStates: Map<StationId, ServiceState>,
   x: number,
   topY: number,
   bottomY: number,
-): Map<string, Vec2> {
+): Map<StationId, Vec2> {
   // Find indices of all active (Open or Suspended) stations
   const activeIndices: number[] = [];
   for (let i = 0; i < allStations.length; i++) {
@@ -23,7 +23,7 @@ export function calculateStationPositions(
     }
   }
 
-  const positions = new Map<string, Vec2>();
+  const positions = new Map<StationId, Vec2>();
   if (activeIndices.length === 0) return positions;
 
   const firstIdx = activeIndices[0];

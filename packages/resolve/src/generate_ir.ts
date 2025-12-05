@@ -1,6 +1,13 @@
+import assert from "node:assert";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { type IRMeta, type LineIR, type PreviewIR, ServiceState } from "./ir";
+import {
+  type LineData,
+  type PreviewData,
+  type PreviewMeta,
+  ServiceState,
+  type Vec2,
+} from "im-shared/types";
 import { calculateStationPositions } from "./layout";
 import { MetroModel } from "./model";
 import { loadJson, loadRidershipData } from "./parse";
@@ -29,21 +36,24 @@ function simulate(
   const model = new MetroModel(linesMeta);
 
   // Initialize IR structures
-  const linesIR: Record<string, LineIR> = {};
+  const linesIR: Record<string, LineData> = {};
 
   // Pre-fill linesIR with static data
   linesMeta.forEach((lm, index) => {
+    const baseX = lm.x ?? 160 + index * 80;
+
+    // Main line
     linesIR[lm.id] = {
       id: lm.id,
       colorHex: lm.color,
-      x: lm.x ?? 160 + index * 80,
+      x: baseX,
       ridership: [],
       statePoints: [],
       stations: lm.stations.map((s) => ({
         id: s[0], // Use Chinese name as ID
         name: s[0],
         translation: s[1],
-        existsFromDay: 999999, // default to never
+        existsFromDay: Number.MAX_SAFE_INTEGER, // default to never
         positions: [],
         service: [],
       })),
@@ -60,12 +70,16 @@ function simulate(
   };
 
   // Track previous positions to detect changes
-  // lineId -> stationName -> lastY
-  const lastPositions = new Map<string, Map<string, number>>();
+  // lineId -> stationName -> lastXPos
+  const lastPositions = new Map<string, Map<string, Vec2>>(
+    linesMeta.map((lm) => [lm.id, new Map()]),
+  );
 
   // Track previous states to detect changes
   const lastLineStates = new Map<string, ServiceState>();
-  const lastStationStates = new Map<string, Map<string, ServiceState>>();
+  const lastStationStates = new Map<string, Map<string, ServiceState>>(
+    linesMeta.map((lm) => [lm.id, new Map()]),
+  );
 
   const queuedEvents = eventsRaw.toSorted((a, b) =>
     a.date < b.date ? -1 : a.date > b.date ? 1 : 0,
@@ -73,14 +87,15 @@ function simulate(
 
   // Simulation Loop
   for (let i = 0; i < sortedDays.length; i++) {
-    // biome-ignore lint/style/noNonNullAssertion: always valid
-    const date = sortedDays[i]!;
+    const date = sortedDays[i];
+    assert(date);
 
     // Apply events
     while (queuedEvents[0] && queuedEvents[0].date <= date) {
       const e = queuedEvents[0];
       queuedEvents.shift();
       if (e && e.date.length !== 10) {
+        // Skip invalid date
         continue;
       }
       model.applyEvent(e);
@@ -93,7 +108,7 @@ function simulate(
     for (const lm of linesMeta) {
       const lineId = lm.id;
       const lineIR = linesIR[lineId];
-      if (!lineIR) continue;
+      assert(lineIR, `Line IR missing for line ID ${lineId}`);
 
       const snapshot = model.snapshot(lineId);
 
@@ -112,8 +127,9 @@ function simulate(
 
       // Layout Stations
       const stationPositions = calculateStationPositions(
-        model.stationOrder.get(lineId) || [],
+        model.stationOrder.get(lineId) ?? [],
         snapshot.stationStates,
+        lineIR.x,
         CONFIG.topPadding,
         CONFIG.height - CONFIG.bottomPadding,
       );
@@ -121,12 +137,11 @@ function simulate(
       // Update Station IR
       for (const [stationName, state] of snapshot.stationStates) {
         const stIR = getStationIR(lineId, stationName);
-        if (!stIR) continue;
+        assert(stIR, `Station IR missing for ${stationName} on line ${lineId}`);
 
         // Service State (Sparse)
-        if (!lastStationStates.has(lineId)) lastStationStates.set(lineId, new Map());
         const lineStStates = lastStationStates.get(lineId);
-        if (!lineStStates) continue;
+        assert(lineStStates);
         const lastStState = lineStStates.get(stationName);
 
         if (lastStState !== state) {
@@ -144,17 +159,16 @@ function simulate(
         }
 
         // Position (Sparse)
-        const y = stationPositions.get(stationName);
-        if (y !== undefined) {
+        const pos = stationPositions.get(stationName);
+        if (pos !== undefined) {
           // Check if changed
-          if (!lastPositions.has(lineId)) lastPositions.set(lineId, new Map());
           const lineLastPos = lastPositions.get(lineId);
-          if (!lineLastPos) continue;
-          const lastY = lineLastPos.get(stationName);
+          assert(lineLastPos);
+          const lastPos = lineLastPos.get(stationName);
 
-          if (lastY !== y) {
-            stIR.positions.push({ day: i, y });
-            lineLastPos.set(stationName, y);
+          if (!lastPos || lastPos.x !== pos.x || lastPos.y !== pos.y) {
+            stIR.positions.push({ day: i, ...pos });
+            lineLastPos.set(stationName, pos);
           }
         }
       }
@@ -180,24 +194,24 @@ async function main() {
   // Load computed CSV ridership (expected to be present in /output/ridership.csv)
   const { ridershipMap, sortedDays } = await loadRidershipData(INPUT_CSV_PATH);
 
-  // Run simulation to generate PreviewIR
-  const linesIR = simulate(ridershipMap, sortedDays, eventsRaw, linesMeta);
+  // Run simulation to generate PreviewData
+  const linesData = simulate(ridershipMap, sortedDays, eventsRaw, linesMeta);
 
-  // Finalize IR
-  const meta: IRMeta = {
+  // Finalize Data
+  const meta: PreviewMeta = {
     width: CONFIG.width,
     height: CONFIG.height,
     days: sortedDays,
   };
 
-  const previewIR: PreviewIR = {
+  const previewData: PreviewData = {
     meta,
-    lines: linesIR,
+    lines: linesData,
   };
 
   // Write output
   await fs.mkdir(path.dirname(OUT_PATH), { recursive: true });
-  await fs.writeFile(OUT_PATH, JSON.stringify(previewIR), "utf8");
+  await fs.writeFile(OUT_PATH, JSON.stringify(previewData), "utf8");
   console.log(`Wrote PreviewIR to ${OUT_PATH}`);
 }
 

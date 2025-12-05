@@ -1,19 +1,26 @@
-import { type LineData, ServiceState, type StatePoint, type StationData } from "./types";
+import {
+  type ActiveLineStations,
+  type KeyedState,
+  type LineData,
+  ServiceState,
+  type StationData,
+  type Vec2,
+} from "./types";
 
 /**
  * Get line state at a given day from sparse state points
  */
-export function getStateAtDay(statePoints: StatePoint[], day: number): ServiceState {
+export function getStateAtDay(statePoints: KeyedState[], day: number): ServiceState {
   return statePoints.findLast((p) => p.day <= day)?.state ?? ServiceState.Never;
 }
 
 /**
- * Get station Y position at a given day from sparse position points
+ * Get station position (x, y) at a given day from sparse position points
  */
-export function getStationYAtDay(station: StationData, day: number): number | undefined {
+export function getStationPositionAtDay(station: StationData, day: number): Vec2 | undefined {
   if (day < station.existsFromDay) return undefined;
 
-  return station.positions.findLast((p) => p.day <= day)?.y;
+  return station.positions.findLast((p) => p.day <= day);
 }
 
 /**
@@ -27,38 +34,32 @@ export function getStationStateAtDay(station: StationData, day: number): Service
 }
 
 /**
- * Parse hex color to RGB tuple
- */
-export function hexToRgb(hex: string): [number, number, number] {
-  const h = parseInt(hex.replace("#", ""), 16);
-  return [(h >> 16) & 255, (h >> 8) & 255, h & 255];
-}
-
-/**
  * Get active stations for a line at a given day
- * If animatedPositions is provided, use those Y values instead of static ones
+ * If animatedPositions is provided, use those x,y values instead of static ones
  */
 export function getActiveStations(
   line: LineData,
   day: number,
-  stationPositions?: Map<string, number>,
-) {
-  const activeStations: { station: StationData; y: number; state: ServiceState }[] = [];
-  let minY = Infinity;
-  let maxY = -Infinity;
+  stationPositions?: Map<string, Vec2>,
+): ActiveLineStations {
+  const activeStations: { station: StationData; pos: Vec2; state: ServiceState }[] = [];
+
+  // TODO: since we do not handle routes, we simply find min/max Y from stations
+  let firstPos = { x: 0, y: Infinity };
+  let lastPos = { x: 0, y: -Infinity };
 
   for (const station of line.stations) {
     const stState = getStationStateAtDay(station, day);
     if (stState === ServiceState.Never || stState === ServiceState.Closed) continue;
 
-    // Use animated position if available, otherwise fall back to static
-    const y = stationPositions?.get(station.id) ?? getStationYAtDay(station, day);
-    if (y === undefined) continue;
+    // Use animated position if available
+    const pos = stationPositions?.get(station.id);
+    if (!pos) continue;
 
-    activeStations.push({ station, y, state: stState });
-    minY = Math.min(minY, y);
-    maxY = Math.max(maxY, y);
+    activeStations.push({ station, pos, state: stState });
+    if (pos.y < firstPos.y) firstPos = pos;
+    if (pos.y > lastPos.y) lastPos = pos;
   }
 
-  return { activeStations, minY, maxY };
+  return { activeStations, firstPos, lastPos };
 }

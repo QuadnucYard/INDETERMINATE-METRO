@@ -11,13 +11,13 @@
     "build:frontend": "cd ./packages/preview && bun run build",
     "preview:frontend": "cd ./packages/preview && bun preview"
   },
-  "workspaces": {
-    "packages": [
-      "packages/*"
-    ],
-    "catalog": {
-      "@types/bun": "latest",
-      "typescript": "^5"
-    }
+  "workspaces": [
+    "packages/*"
+  ],
+  "dependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
   }
 }

@@ -6,6 +6,7 @@
   "formatter": {
     "indentStyle": "space",
     "lineWidth": 100,
-    "includes": ["**", "!data/*", "data/events.json", "!**/public/*.json", "!**/dist/**"]
+    "includes": ["**", "!**/public/*.json", "!**/dist/**"],
+    "formatWithErrors": true
   }
 }

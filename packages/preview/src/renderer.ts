@@ -1,17 +1,20 @@
 import type { State } from "vanjs-core";
 import van from "vanjs-core";
+import { Rgb, Rgba } from "./color";
 import type { ControlsState } from "./controls";
 import { ParticleAnimator } from "./particle/animator";
 import { ParticleSystem } from "./particle/system";
 import { PositionAnimator } from "./position-animator";
 import {
+  type ActiveLineStations,
   type LineData,
   type PreviewData,
   type Rect,
   type RenderStyle,
   ServiceState,
+  type Vec2,
 } from "./types";
-import { getActiveStations, getStateAtDay, hexToRgb } from "./utils";
+import { getActiveStations, getStateAtDay } from "./utils";
 
 const LINE_MARGIN = 5;
 const STATION_RADIUS = 6;
@@ -55,111 +58,161 @@ export class MetroRenderer {
 
   /**
    * Render the metro visualization
+   * Render order: all line stems first, then all stations, then all labels
    */
   public render(
     data: PreviewData,
     day: number,
     styles: RenderStyle,
-    stationPositions?: Map<string, Map<string, number>>,
+    stationPositions?: Map<string, Map<string, Vec2>>,
   ) {
+    // Collect render data for all lines
+    type LineRenderData = {
+      line: LineData;
+      positions: Map<string, Vec2> | undefined;
+      activeStations: ActiveLineStations;
+      widthPx: number;
+      opacity: number;
+      color: Rgb;
+    };
+
+    const lineRenderData: LineRenderData[] = [];
+
     const { lines } = data;
     const dayIndex = Math.floor(day);
 
-    // Get canvas physical dimensions
-    const canvasWidth = this.canvas.width;
-    const canvasHeight = this.canvas.height;
+    // Prepare render data for main lines
+    for (const [lineId, line] of Object.entries(lines)) {
+      const lineState = getStateAtDay(line.statePoints, dayIndex);
+      if (lineState === ServiceState.Never || lineState === ServiceState.Closed) continue;
+
+      const positions = stationPositions?.get(lineId);
+      const activeStations = getActiveStations(line, dayIndex, positions);
+      if (activeStations.activeStations.length === 0) continue;
+
+      const ridership = line.ridership[dayIndex] ?? line.ridership.at(-1) ?? 0;
+      const widthPx = calculateWidth(ridership / 100) * styles.widthScale;
+      const opacity = lineState === ServiceState.Suspended ? 0.4 : 1;
+
+      lineRenderData.push({
+        line,
+        positions,
+        activeStations,
+        widthPx,
+        opacity,
+        color: Rgb.fromHex(line.colorHex),
+      });
+    }
 
     const ctx = this.ctx;
 
     // Clear canvas
-    ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+    ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
     ctx.save();
     ctx.scale(this.scale, this.scale); // Fit reference size into canvas
 
-    // Render each line in reference coordinate space
-    for (const lineId in lines) {
-      const line = lines[lineId];
-      if (line) {
-        const linePositions = stationPositions?.get(lineId);
-        this.renderLine(line, dayIndex, styles, linePositions);
+    // Pass 1: Draw all line stems
+    for (const rd of lineRenderData) {
+      this.renderLineStem(rd.activeStations, rd.widthPx, rd.color.withAlpha(rd.opacity));
+    }
+
+    // Pass 2: Draw all stations
+    for (const rd of lineRenderData) {
+      this.renderLineStations(rd.activeStations, rd.color);
+    }
+
+    // Pass 3: Draw all labels
+    if (styles.showLabels) {
+      for (const rd of lineRenderData) {
+        this.renderLineLabels(rd.line, rd.activeStations, rd.color.withAlpha(rd.opacity));
       }
     }
 
     ctx.restore();
   }
 
-  private renderLine(
-    line: LineData,
-    day: number,
-    styles: RenderStyle,
-    stationPositions?: Map<string, number>,
-  ) {
-    const lineState = getStateAtDay(line.statePoints, day);
-    if (lineState === ServiceState.Never || lineState === ServiceState.Closed) return;
+  /**
+   * Draw the line stem (the main vertical line and branch connectors)
+   */
+  private renderLineStem(stationData: ActiveLineStations, widthPx: number, color: Rgba) {
+    const { activeStations, firstPos, lastPos } = stationData;
 
-    const [r, g, b] = hexToRgb(line.colorHex);
-    const opacity = lineState === ServiceState.Suspended ? 0.4 : 1;
-
-    // Calculate width from raw ridership
-    const ridership = line.ridership[day] ?? line.ridership[line.ridership.length - 1] ?? 0;
-    const widthPx = calculateWidth(ridership / 100) * styles.widthScale;
-
-    const { activeStations, minY, maxY } = getActiveStations(line, day, stationPositions);
     if (activeStations.length === 0) return;
 
     const ctx = this.ctx;
 
-    // Draw the line stem
-    ctx.beginPath();
-    ctx.moveTo(line.x, minY - LINE_MARGIN);
-    ctx.lineTo(line.x, maxY + LINE_MARGIN);
-    ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${opacity})`;
+    ctx.strokeStyle = color.toCss();
     ctx.lineWidth = widthPx;
     ctx.lineCap = "round";
     ctx.shadowBlur = widthPx;
     ctx.shadowColor = ctx.strokeStyle;
-    ctx.stroke();
 
-    // Draw station circles
-    for (const { station, y, state } of activeStations) {
+    // Main line: simple vertical stem (uses animated x from stations)
+    ctx.beginPath();
+    ctx.moveTo(firstPos.x, firstPos.y - LINE_MARGIN);
+    ctx.lineTo(lastPos.x, lastPos.y + LINE_MARGIN);
+    ctx.stroke();
+  }
+
+  /**
+   * Draw station circles for a line
+   */
+  private renderLineStations(stationData: ActiveLineStations, color: Rgb) {
+    const { activeStations } = stationData;
+    if (activeStations.length === 0) return;
+
+    const ctx = this.ctx;
+
+    // Reset shadow for station circles
+    ctx.shadowBlur = 0;
+
+    for (const { pos, state } of activeStations) {
       const stOpacity = state === ServiceState.Suspended ? 0.4 : 1;
 
       // Fill circle (white/light)
       ctx.beginPath();
-      ctx.arc(line.x, y, STATION_RADIUS, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(255, 255, 255, ${stOpacity * 0.9})`;
+      ctx.arc(pos.x, pos.y, STATION_RADIUS, 0, Math.PI * 2);
+      ctx.fillStyle = new Rgba(255, 255, 255, stOpacity * 0.9).toCss();
       ctx.fill();
 
       // Stroke with line color
-      ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${stOpacity})`;
+      ctx.strokeStyle = color.withAlpha(stOpacity).toCss();
       ctx.lineWidth = STATION_STROKE_WIDTH;
       ctx.stroke();
+    }
+  }
 
-      // Draw station label
-      if (styles.showLabels) {
-        ctx.save();
-        ctx.font = "12px system-ui";
-        ctx.fillStyle = `rgba(255, 255, 255, ${stOpacity * 0.8})`;
-        ctx.textAlign = "left";
-        ctx.textBaseline = "middle";
-        const label = station.name;
-        ctx.fillText(label, line.x + STATION_RADIUS + 8, y);
-        ctx.restore();
-      }
+  /**
+   * Draw labels for a line (station names and line name)
+   */
+  private renderLineLabels(line: LineData, stationData: ActiveLineStations, color: Rgba) {
+    const { activeStations, firstPos } = stationData;
+    if (activeStations.length === 0) return;
+
+    const ctx = this.ctx;
+
+    // Draw station labels
+    for (const { station, pos, state } of activeStations) {
+      const stOpacity = state === ServiceState.Suspended ? 0.4 : 1;
+      ctx.save();
+      ctx.font = "12px system-ui";
+      ctx.fillStyle = new Rgba(255, 255, 255, stOpacity * 0.8).toCss();
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      ctx.fillText(station.name, pos.x + STATION_RADIUS + 8, pos.y);
+      ctx.restore();
     }
 
     // Draw line name
-    if (styles.showLabels && activeStations.length > 0) {
-      ctx.save();
-      ctx.font = "bold 20px system-ui";
-      ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${opacity})`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "bottom";
-      const lineName = line.name || line.id;
-      ctx.fillText(lineName, line.x, minY - 10);
-      ctx.restore();
-    }
+    ctx.save();
+    ctx.font = "bold 20px system-ui";
+    ctx.fillStyle = color.toCss();
+    ctx.textAlign = "center";
+    ctx.textBaseline = "bottom";
+    const lineName = line.name || line.id;
+    ctx.fillText(lineName, line.x, firstPos.y - 10);
+    ctx.restore();
   }
 }
 
@@ -177,7 +230,7 @@ function useMetroRenderer(
 ) {
   const renderer = new MetroRenderer();
   const positionAnimator = new PositionAnimator();
-  let animatedPositions: Map<string, Map<string, number>> | undefined;
+  let animatedPositions: Map<string, Map<string, Vec2>> | undefined;
 
   const render = (data: PreviewData) => {
     // Update animated positions

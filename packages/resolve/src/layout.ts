@@ -1,4 +1,5 @@
-import { ServiceState } from "./ir";
+import assert from "node:assert";
+import { ServiceState, type Vec2 } from "im-shared/types";
 
 /**
  * Calculate station positions, reserving space for all stations between first and last active.
@@ -7,21 +8,22 @@ import { ServiceState } from "./ir";
 export function calculateStationPositions(
   allStations: string[],
   stationStates: Map<string, ServiceState>,
+  x: number,
   topY: number,
   bottomY: number,
-): Map<string, number> {
+): Map<string, Vec2> {
   // Find indices of all active (Open or Suspended) stations
   const activeIndices: number[] = [];
   for (let i = 0; i < allStations.length; i++) {
     const stationId = allStations[i];
-    if (!stationId) continue;
+    assert(stationId);
     const state = stationStates.get(stationId);
     if (state === ServiceState.Open || state === ServiceState.Suspended) {
       activeIndices.push(i);
     }
   }
 
-  const positions = new Map<string, number>();
+  const positions = new Map<string, Vec2>();
   if (activeIndices.length === 0) return positions;
 
   const firstIdx = activeIndices[0];
@@ -31,7 +33,7 @@ export function calculateStationPositions(
 
   if (firstIdx === lastIdx) {
     const sid = allStations[firstIdx];
-    if (sid) positions.set(sid, topY);
+    if (sid) positions.set(sid, { x, y: topY });
     return positions;
   }
 
@@ -41,7 +43,7 @@ export function calculateStationPositions(
   for (const idx of activeIndices) {
     const y = topY + (idx - firstIdx) * (height / totalSteps);
     const sid = allStations[idx];
-    if (sid) positions.set(sid, y);
+    if (sid) positions.set(sid, { x, y });
   }
 
   return positions;

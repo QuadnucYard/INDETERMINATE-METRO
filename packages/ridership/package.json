@@ -7,11 +7,5 @@
   },
   "dependencies": {
     "radash": "^12.1.1"
-  },
-  "devDependencies": {
-    "@types/bun": "catalog:"
-  },
-  "peerDependencies": {
-    "typescript": "catalog:"
   }
 }

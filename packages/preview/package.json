@@ -10,11 +10,12 @@
     "lint": "biome lint --write",
     "check": "biome check --write"
   },
+  "dependencies": {
+    "im-shared": "workspace:*",
+    "vanjs-core": "^1.6.0"
+  },
   "devDependencies": {
     "typescript": "^5.9.3",
     "vite": "^6.4.1"
-  },
-  "dependencies": {
-    "vanjs-core": "^1.6.0"
   }
 }

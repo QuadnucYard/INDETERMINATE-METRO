@@ -1,0 +1,55 @@
+export type Vec2 = { readonly x: number; readonly y: number };
+
+/** Service state for a line or station (stored as small integers for cheap AE expressions). */
+export enum ServiceState {
+  Never = 0, // never-opened (do not create / display)
+  Open = 1, // normal operation (opaque)
+  Suspended = 2, // temporarily suspended (semi-transparent)
+  Closed = 3, // permanently closed from this day onward (hide)
+}
+
+export type Keyed<T> = Readonly<
+  {
+    /** day index, 0-based */
+    readonly day: number;
+  } & T
+>;
+
+export type KeyedArray<T> = Keyed<T>[];
+
+export type KeyedState = Keyed<{ state: ServiceState }>;
+
+export type StationPoint = Keyed<Vec2>;
+
+export type StationData = {
+  id: string;
+  name: string;
+  translation?: string;
+  existsFromDay: number;
+  // sparse position change points (sorted by day)
+  positions: KeyedArray<Vec2>;
+  // optional sparse service points (small)
+  service?: KeyedArray<{ state: ServiceState }>;
+};
+
+export type LineData = {
+  id: string;
+  name?: string;
+  colorHex: string;
+  x: number;
+  // raw ridership counts in 万人 (10k passengers) per day
+  ridership: number[];
+  statePoints: KeyedState[]; // sparse state transitions; sample discrete state
+  stations: StationData[];
+};
+
+export type PreviewMeta = {
+  width: number;
+  height: number;
+  days: string[]; // ISO day strings; dayIndex = index
+};
+
+export type PreviewData = {
+  meta: PreviewMeta;
+  lines: Record<string, LineData>;
+};

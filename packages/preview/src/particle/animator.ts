@@ -1,3 +1,4 @@
+import { Rgb } from "../color";
 import { type LineData, type PreviewData, ServiceState } from "../types";
 import { EMITTER_PRESETS } from "./presets";
 import type { ParticleSystem } from "./system";
@@ -43,7 +44,9 @@ export class ParticleAnimator {
       if (trigger.day > this.lastDay && trigger.day <= day) {
         for (const config of trigger.configs) {
           // Use line color with appropriate alpha based on effect type
-          const colorOverride = hexToRgba(trigger.color, config.alpha ?? 1.0);
+          const colorOverride = Rgb.fromHex(trigger.color)
+            .withAlpha(config.alpha ?? 1.0)
+            .toCss();
           this.particleSystem.emitBurst(config, trigger.position, trigger.stroke, {
             color: colorOverride,
           });
@@ -148,14 +151,4 @@ export class ParticleAnimator {
 
     return triggers.sort((a, b) => a.day - b.day);
   }
-}
-
-/**
- * Helper to convert hex color to rgba with specified alpha
- */
-function hexToRgba(hex: string, alpha: number): string {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return `rgba(${r},${g},${b},${alpha})`;
 }

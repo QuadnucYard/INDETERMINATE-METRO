@@ -4,10 +4,18 @@
   "workspaces": {
     "": {
       "name": "indeterminate-metro",
+      "dependencies": {
+        "@types/bun": "latest",
+        "im-shared": "workspace:*",
+      },
+      "peerDependencies": {
+        "typescript": "^5",
+      },
     },
     "packages/preview": {
       "name": "im-preview",
       "dependencies": {
+        "im-shared": "workspace:*",
         "vanjs-core": "^1.6.0",
       },
       "devDependencies": {
@@ -18,13 +26,8 @@
     "packages/resolve": {
       "name": "im-resolve",
       "dependencies": {
+        "im-shared": "workspace:*",
         "radash": "^12.1.1",
-      },
-      "devDependencies": {
-        "@types/bun": "catalog:",
-      },
-      "peerDependencies": {
-        "typescript": "catalog:",
       },
     },
     "packages/ridership": {
@@ -32,17 +35,10 @@
       "dependencies": {
         "radash": "^12.1.1",
       },
-      "devDependencies": {
-        "@types/bun": "catalog:",
-      },
-      "peerDependencies": {
-        "typescript": "catalog:",
-      },
     },
-  },
-  "catalog": {
-    "@types/bun": "latest",
-    "typescript": "^5",
+    "packages/shared": {
+      "name": "im-shared",
+    },
   },
   "packages": {
     "@esbuild/aix-ppc64": ["@esbuild/aix-ppc64@0.25.12", "", { "os": "aix", "cpu": "ppc64" }, "sha512-Hhmwd6CInZ3dwpuGTF8fJG6yoWmsToE+vYgD4nytZVxcu1ulHpUQRAB1UJ8+N1Am3Mz4+xOByoQoSZf4D+CpkA=="],
@@ -160,6 +156,8 @@
     "im-resolve": ["im-resolve@workspace:packages/resolve"],
 
     "im-ridership": ["im-ridership@workspace:packages/ridership"],
+
+    "im-shared": ["im-shared@workspace:packages/shared"],
 
     "nanoid": ["nanoid@3.3.11", "", { "bin": { "nanoid": "bin/nanoid.cjs" } }, "sha512-N8SpfPUnUp1bK+PMYW8qSWdl9U+wwNWI4QKxOYDy9JAro3WMX7p2OeVRF9v+347pnakNevPmiHhNmZ2HbFA76w=="],
 

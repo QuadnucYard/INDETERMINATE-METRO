@@ -1,10 +1,10 @@
-import type { LineData, PreviewData, StationData } from "./types";
-import { getStationYAtDay } from "./utils";
+import type { LineData, PreviewData, StationData, Vec2 } from "./types";
+import { getStationPositionAtDay } from "./utils";
 
 interface AnimatedPosition {
-  currentY: number;
-  targetY: number;
-  startY: number;
+  current: Vec2;
+  target: Vec2;
+  start: Vec2;
   startTime: number;
   duration: number;
 }
@@ -29,16 +29,16 @@ export class PositionAnimator {
     data: PreviewData,
     currentDay: number,
     now: number,
-  ): Map<string, Map<string, number>> {
+  ): Map<string, Map<string, Vec2>> {
     const day = Math.floor(currentDay);
 
-    const result = new Map<string, Map<string, number>>();
+    const result = new Map<string, Map<string, Vec2>>();
 
     for (const [lineId, line] of Object.entries(data.lines)) {
       const linePositions = this.getOrCreateLineMap(lineId);
       this.updateLinePositions(linePositions, line, day, now);
       const resultLine = new Map(
-        linePositions.entries().map(([stationId, anim]) => [stationId, anim.currentY]),
+        linePositions.entries().map(([stationId, anim]) => [stationId, anim.current]),
       );
       result.set(lineId, resultLine);
     }
@@ -53,14 +53,19 @@ export class PositionAnimator {
     now: number,
   ) {
     // First pass: collect all current target positions for insertion point calculation
-    const stationTargets: { station: StationData; targetY: number; index: number }[] = [];
+    const stationTargets: {
+      station: StationData;
+      target: Vec2;
+      index: number;
+    }[] = [];
     for (let i = 0; i < line.stations.length; i++) {
       const station = line.stations[i];
       if (!station) continue;
 
-      const targetY = getStationYAtDay(station, day);
-      if (targetY !== undefined) {
-        stationTargets.push({ station, targetY, index: i });
+      // Get position from IR (includes x computed during IR generation)
+      const pos = getStationPositionAtDay(station, day);
+      if (pos !== undefined) {
+        stationTargets.push({ station, target: pos, index: i });
       } else {
         // Station not active at this day - remove from animations
         linePositions.delete(station.id);
@@ -68,23 +73,23 @@ export class PositionAnimator {
     }
 
     // Second pass: animate positions
-    for (const { station, targetY } of stationTargets) {
+    for (const { station, target } of stationTargets) {
       const anim = linePositions.get(station.id);
 
       if (!anim) {
         // First time seeing this station - animate from insertion point
-        const insertionY = findInsertionPoint(station.id, stationTargets, linePositions);
+        const insertionPos = findInsertionPoint(station.id, stationTargets, linePositions);
         linePositions.set(station.id, {
-          currentY: insertionY,
-          targetY,
-          startY: insertionY,
+          current: insertionPos,
+          target,
+          start: insertionPos,
           startTime: now,
           duration: INSERTION_DURATION,
         });
-      } else if (anim.targetY !== targetY) {
+      } else if (anim.target.y !== target.y || anim.target.x !== target.x) {
         // Target changed - start new animation
-        anim.startY = anim.currentY;
-        anim.targetY = targetY;
+        anim.start = anim.current;
+        anim.target = target;
         anim.startTime = now;
         anim.duration = TRANSITION_DURATION;
       } else {
@@ -94,9 +99,9 @@ export class PositionAnimator {
           // Animate with easing
           const t = elapsed / anim.duration;
           const eased = easeOutCubic(t);
-          anim.currentY = anim.startY + (anim.targetY - anim.startY) * eased;
+          anim.current = lerp(anim.start, anim.target, eased);
         } else {
-          anim.currentY = anim.targetY;
+          anim.current = anim.target;
         }
       }
     }
@@ -139,9 +144,9 @@ export class PositionAnimator {
  */
 function findInsertionPoint(
   stationId: string,
-  stationTargets: { station: StationData; targetY: number; index: number }[],
-  linePositions: Map<string, AnimatedPosition>,
-): number {
+  stationTargets: readonly { station: StationData; target: Vec2; index: number }[],
+  linePositions: ReadonlyMap<string, AnimatedPosition>,
+): Vec2 {
   // Find the index for the requested station
   const current = stationTargets.find((st) => st.station.id === stationId);
   if (current === undefined) {
@@ -150,12 +155,12 @@ function findInsertionPoint(
 
   const currentIndex = current.index;
 
-  // Find all existing animated stations with indices and Y
-  const existing: { index: number; y: number }[] = [];
+  // Find all existing animated stations with indices and positions
+  const existing: { readonly index: number; readonly pos: Vec2 }[] = [];
   for (const { station, index } of stationTargets) {
     const existingAnim = linePositions.get(station.id);
     if (existingAnim) {
-      existing.push({ index, y: existingAnim.currentY });
+      existing.push({ index, pos: existingAnim.current });
     }
   }
   // Sort by index
@@ -164,12 +169,12 @@ function findInsertionPoint(
   // If current index is before the first existing, return first Y
   const first = existing[0];
   if (first && currentIndex <= first.index) {
-    return first.y;
+    return first.pos;
   }
   // If current index is after the last existing, return last Y
   const last = existing.at(-1);
   if (last && currentIndex >= last.index) {
-    return last.y;
+    return last.pos;
   }
 
   // Otherwise, it's between two existing stations: find bounding pair and return midpoint
@@ -178,12 +183,23 @@ function findInsertionPoint(
     const right = existing[i];
     if (!left || !right) continue;
     if (currentIndex > left.index && currentIndex < right.index) {
-      return (left.y + right.y) / 2;
+      return midpoint(left.pos, right.pos);
     }
   }
 
   // Fallback if something unexpected occurred
-  return current.targetY;
+  return current.target;
+}
+
+function midpoint(p1: Vec2, p2: Vec2): Vec2 {
+  return { x: (p1.x + p2.x) * 0.5, y: (p1.y + p2.y) * 0.5 };
+}
+
+function lerp(p1: Vec2, p2: Vec2, t: number): Vec2 {
+  return {
+    x: p1.x + (p2.x - p1.x) * t,
+    y: p1.y + (p2.y - p1.y) * t,
+  };
 }
 
 /**

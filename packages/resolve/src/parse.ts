@@ -1,4 +1,4 @@
-import { promises as fs } from "node:fs";
+import fs from "node:fs/promises";
 
 export const loadJson = async <T>(p: string): Promise<T | null> => {
   try {
@@ -14,17 +14,18 @@ export async function loadRidershipData(csvPath: string) {
   const csv = await fs.readFile(csvPath, "utf8");
 
   const lines = csv.split(/\r?\n/).filter((l) => l.trim().length > 0);
-  if (lines.length === 0) return { ridershipMap: new Map(), sortedDays: [], allLineIds: [] };
 
-  // biome-ignore lint/style/noNonNullAssertion: valid
-  const header = lines[0]!.split(",").map((s) => s.trim());
+  const headerLine = lines.shift();
+  if (!headerLine) {
+    return { ridershipMap: new Map(), sortedDays: [], allLineIds: [] };
+  }
+  const header = headerLine.split(",").map((s) => s.trim());
   // header: date,  <line ids...>
 
   const ridershipMap = new Map<string, Record<string, number>>();
   const dates: string[] = [];
-  for (let i = 1; i < lines.length; i++) {
-    // biome-ignore lint/style/noNonNullAssertion: valid
-    const row = lines[i]!.split(",");
+  for (const line of lines) {
+    const row = line.split(",");
     if (row.length < 1) continue;
     const date = (row[0] ?? "").trim();
     if (!date) continue;

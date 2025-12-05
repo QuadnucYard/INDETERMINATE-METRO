@@ -1,4 +1,4 @@
-import { ServiceState } from "./ir";
+import { ServiceState } from "im-shared/types";
 import type { EventRecord, LineMeta, StationsSpec } from "./types";
 
 export interface StationState {

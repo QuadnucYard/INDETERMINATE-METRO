@@ -17,6 +17,14 @@ export function getStateAtDay(statePoints: KeyedState[], day: number): ServiceSt
 }
 
 /**
+ * Get ridership count for a line at a given day
+ */
+export function getRidershipAtDay(line: LineData, day: number): number {
+  const firstDay = line.firstDay ?? 0;
+  return line.ridership[day - firstDay] ?? 0;
+}
+
+/**
  * Get station position (x, y) at a given day from sparse position points
  */
 export function getStationPositionAtDay(station: StationData, day: number): Vec2 | undefined {

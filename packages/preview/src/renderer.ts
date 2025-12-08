@@ -16,7 +16,12 @@ import {
   type StationId,
   type Vec2,
 } from "./types";
-import { getActiveStations, getRouteSegmentsAtDay, getStateAtDay } from "./utils";
+import {
+  getActiveStations,
+  getRidershipAtDay,
+  getRouteSegmentsAtDay,
+  getStateAtDay,
+} from "./utils";
 
 const LINE_MARGIN = 5;
 const STATION_RADIUS = 6;
@@ -104,7 +109,7 @@ export class MetroRenderer {
           .filter((pos) => pos !== undefined),
       );
 
-      const ridership = line.ridership[dayIndex] ?? line.ridership.at(-1) ?? 0;
+      const ridership = getRidershipAtDay(line, dayIndex);
       const widthPx = calculateWidth(ridership / 100) * styles.widthScale;
       const opacity = lineState === ServiceState.Suspended ? 0.4 : 1;
 

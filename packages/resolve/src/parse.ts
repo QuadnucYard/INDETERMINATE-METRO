@@ -18,10 +18,11 @@ export async function loadRidershipData(csvPath: string) {
 
   const headerLine = lines.shift();
   if (!headerLine) {
-    return { ridershipMap: new Map(), sortedDays: [], allLineIds: [] };
+    return { ridershipMap: new Map(), sortedDays: [], lineIds: [] };
   }
   const header = headerLine.split(",").map((s) => s.trim());
   // header: date,  <line ids...>
+  const lineIds = header.slice(1) as LineId[];
 
   const ridershipMap = new Map<LineId, Record<StationId, number>>();
   const dates: string[] = [];
@@ -43,5 +44,5 @@ export async function loadRidershipData(csvPath: string) {
   // sort the dates ascending
   const sortedDays = Array.from(new Set(dates)).sort();
 
-  return { ridershipMap, sortedDays };
+  return { ridershipMap, sortedDays, lineIds };
 }

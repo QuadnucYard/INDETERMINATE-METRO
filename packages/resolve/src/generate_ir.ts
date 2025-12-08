@@ -16,7 +16,7 @@ import { loadJson, loadRidershipData } from "./parse";
 import type { EventRecord, LineMeta } from "./types";
 
 const DATA_DIR = path.join(process.cwd(), "../../data");
-const INPUT_META_PATH = path.join(DATA_DIR, "lines_meta.json");
+const INPUT_META_PATH = path.join(DATA_DIR, "lines-meta.json");
 const INPUT_EVENTS_PATH = path.join(DATA_DIR, "events.json");
 const INPUT_CSV_PATH = path.join(DATA_DIR, "ridership.csv");
 const OUT_PATH = path.join(DATA_DIR, "../packages/preview/public/preview_ir.json");
@@ -191,6 +191,63 @@ function simulate(
   return linesIR;
 }
 
+/**
+ * Generate an array of ISO date strings from startDate to endDate (exclusive)
+ */
+function generateDateRange(startDate: string, endDate: string): string[] {
+  const dates: string[] = [];
+  const current = new Date(startDate);
+  const end = new Date(endDate);
+
+  while (current < end) {
+    dates.push(current.toISOString().slice(0, 10));
+    current.setDate(current.getDate() + 1);
+  }
+
+  return dates;
+}
+
+function extendDummyDays(
+  ridershipMap: Map<LineId, Record<StationId, number>>,
+  sortedDays: string[],
+  eventsRaw: EventRecord[],
+  linesMeta: LineMeta[],
+) {
+  // Build dummy ridership lookup from linesMeta
+  const dummyRidership = Object.fromEntries(
+    linesMeta
+      .filter((lm) => lm.dummyRidership !== undefined)
+      .map((lm) => [lm.id, lm.dummyRidership as number]),
+  );
+
+  // Find the first event date
+  const sortedEvents = eventsRaw.toSorted((a, b) =>
+    a.date < b.date ? -1 : a.date > b.date ? 1 : 0,
+  );
+  const firstEventDate = sortedEvents[0]?.date;
+
+  // Build full days array, prepending dummy days if needed
+  const allDays = [...sortedDays];
+
+  const firstRidershipDate = sortedDays[0];
+  if (firstEventDate && firstRidershipDate && firstEventDate < firstRidershipDate) {
+    // Generate dummy days from first event to first ridership date
+    const dummyDays = generateDateRange(firstEventDate, firstRidershipDate);
+    console.log(
+      `Adding ${dummyDays.length} dummy days from ${firstEventDate} to ${firstRidershipDate}`,
+    );
+
+    // Add dummy ridership entries for these days
+    for (const date of dummyDays) {
+      ridershipMap.set(date, dummyRidership);
+    }
+
+    allDays.splice(0, 0, ...dummyDays);
+  }
+
+  return allDays;
+}
+
 async function main() {
   const linesMeta = await loadJson<LineMeta[]>(INPUT_META_PATH);
   const eventsRaw = await loadJson<EventRecord[]>(INPUT_EVENTS_PATH);
@@ -203,14 +260,16 @@ async function main() {
   // Load computed CSV ridership (expected to be present in /output/ridership.csv)
   const { ridershipMap, sortedDays } = await loadRidershipData(INPUT_CSV_PATH);
 
+  const allDays = extendDummyDays(ridershipMap, sortedDays, eventsRaw, linesMeta);
+
   // Run simulation to generate PreviewData
-  const linesData = simulate(ridershipMap, sortedDays, eventsRaw, linesMeta);
+  const linesData = simulate(ridershipMap, allDays, eventsRaw, linesMeta);
 
   // Finalize Data
   const meta: PreviewMeta = {
     width: CONFIG.width,
     height: CONFIG.height,
-    days: sortedDays,
+    days: allDays,
   };
 
   const previewData: PreviewData = {

@@ -44,7 +44,8 @@
       [{ "from": "八卦洲大桥南", "to": "安德门" }],
       [{ "from": "安德门", "to": "奥体中心" }],
       ["安德门", { "from": "天隆寺", "to": "中国药科大学" }]
-    ]
+    ],
+    "dummyRidership": 60.0
   },
   {
     "id": "2",
@@ -80,7 +81,8 @@
       ["羊山公园", "YANGSHANGONGYUAN"],
       ["南大仙林校区", "NJU XIANLIN CAMPUS"],
       ["经天路", "JINGTIANLU"]
-    ]
+    ],
+    "dummyRidership": 40.0
   },
   {
     "id": "3",

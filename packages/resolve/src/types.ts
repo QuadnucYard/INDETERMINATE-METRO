@@ -6,6 +6,7 @@ export type LineMeta = {
   x?: number; // desired x position in pixels
   stations: [StationId, string][]; // list of [station name, translation] pairs
   routes?: Route[];
+  dummyRidership?: number; // optional dummy ridership value for days before ridership data starts
 };
 
 /** An array whose item is either a single station or an interval */

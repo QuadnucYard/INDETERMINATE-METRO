@@ -1,9 +1,9 @@
 import type { State } from "vanjs-core";
 import van from "vanjs-core";
+import { BlossomSchedule } from "./blossom/schedule";
+import { BlossomSystem } from "./blossom/system";
 import { Rgb, Rgba } from "./color";
 import type { ControlsState } from "./controls";
-import { ParticleAnimator } from "./particle/animator";
-import { ParticleSystem } from "./particle/system";
 import { PositionAnimator } from "./position-animator";
 import {
   type ActiveLineStations,
@@ -325,44 +325,53 @@ function useMetroRenderer(
   return { resize, canvas: renderer.getCanvas() };
 }
 
-function useParticleRenderer(data: State<PreviewData | null>, controlsState: ControlsState) {
-  const particleSystem = new ParticleSystem(960, 540);
-  particleSystem.initPool(2000);
-
-  const particleAnimator = new ParticleAnimator(particleSystem);
+function useBlossomRenderer(data: State<PreviewData | null>, controlsState: ControlsState) {
+  const blossomSystem = new BlossomSystem(960, 540);
+  blossomSystem.initPool(300);
 
   let lastTime = performance.now();
+  let totalTime = 0;
 
-  // Independent particle update loop
-  function updateParticles() {
+  // Independent blossom update loop
+  function updateBlossoms() {
     const now = performance.now();
-    const dt = (now - lastTime) / 1000;
+    const rawDt = (now - lastTime) / 1000;
     lastTime = now;
 
-    if (data.val) {
-      particleSystem.update(dt * controlsState.speed.val * 0.1);
-    }
-    requestAnimationFrame(updateParticles);
-  }
-  updateParticles();
+    // Scale dt by particle time scale
+    const dt = rawDt * controlsState.particleTimeScale.val;
+    totalTime += dt;
 
-  const render = () => {
-    if (data.val) {
-      // Update particle animator
-      particleAnimator.update(data.val, controlsState.currentDay.val);
+    if (data.val && controlsState.isPlaying.val) {
+      blossomSystem.update(dt, totalTime);
+
+      // Random gusts
+      if (Math.random() * dt < 0.01) {
+        blossomSystem.triggerGust(0.5 + Math.random());
+      }
+    } else if (data.val) {
+      // Still update physics when paused but slower
+      blossomSystem.update(dt, totalTime);
     }
-  };
+
+    requestAnimationFrame(updateBlossoms);
+  }
+  updateBlossoms();
 
   const resize = (data: PreviewData, rect: Rect) => {
-    particleSystem.resize(rect, data.meta);
-    render();
+    blossomSystem.resize(rect, data.meta);
   };
 
+  const schedule = new BlossomSchedule(blossomSystem);
+
   van.derive(() => {
-    render();
+    if (!data.val) return;
+
+    const day = Math.floor(controlsState.currentDay.val);
+    schedule.update(data.val, day);
   });
 
-  return { resize, canvas: particleSystem.getCanvas() };
+  return { resize, canvas: blossomSystem.getCanvas() };
 }
 
 export function useRenderer(
@@ -373,12 +382,12 @@ export function useRenderer(
   const { div } = van.tags;
 
   const metroRenderer = useMetroRenderer(data, controlsState, styles);
-  const particleRenderer = useParticleRenderer(data, controlsState);
+  const blossomRenderer = useBlossomRenderer(data, controlsState);
 
   const canvasContainer = div(
     { class: "canvas-container" },
     metroRenderer.canvas,
-    particleRenderer.canvas,
+    blossomRenderer.canvas,
   );
 
   const canvasSize = van.state<Rect | null>(null);
@@ -386,7 +395,7 @@ export function useRenderer(
   van.derive(() => {
     if (data.val && canvasSize.val) {
       metroRenderer.resize(data.val, canvasSize.val);
-      particleRenderer.resize(data.val, canvasSize.val);
+      blossomRenderer.resize(data.val, canvasSize.val);
     }
   });
 

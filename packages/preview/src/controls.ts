@@ -7,6 +7,7 @@ export interface ControlsState {
   currentDay: State<number>;
   speed: State<number>;
   isPlaying: State<boolean>;
+  particleTimeScale: State<number>;
 }
 
 export function createControls(
@@ -77,6 +78,21 @@ export function createControls(
             },
           }),
           output(() => `${speed.val}`),
+        ),
+        label(
+          { class: "control-item" },
+          span("Particle"),
+          input({
+            type: "range",
+            min: 0.1,
+            max: 2.0,
+            step: 0.1,
+            value: controls.particleTimeScale,
+            oninput: (e: Event) => {
+              controls.particleTimeScale.val = parseFloat((e.target as HTMLInputElement).value);
+            },
+          }),
+          output(() => `${controls.particleTimeScale.val.toFixed(1)}x`),
         ),
       ),
       // Settings controls

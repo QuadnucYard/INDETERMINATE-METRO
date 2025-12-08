@@ -21,6 +21,7 @@ function App() {
     currentDay: van.state(0),
     speed: van.state(10),
     isPlaying: van.state(false),
+    particleTimeScale: van.state(1),
   };
   const renderStyle: State<RenderStyle> = van.state({
     widthScale: 1,

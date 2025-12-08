@@ -1,0 +1,421 @@
+// ============================================================================
+// Particle definition
+// ============================================================================
+
+import type { Rect } from "../types";
+import type { EmitterConfig } from "./config";
+import { BlossomSpriteCollection } from "./sprite";
+import { type Vec3, vec3, vec3Mag, zeroVec3 } from "./utils";
+
+interface Blossom {
+  alive: boolean;
+  pos: Vec3;
+  vel: Vec3;
+  rot: Vec3; // Euler angles
+  spin: Vec3; // Angular velocity
+  size: number;
+  life: number;
+  ttl: number;
+  mass: number;
+  color: string;
+  spriteId: number;
+}
+
+// ============================================================================
+// Wind configuration
+// ============================================================================
+
+interface WindConfig {
+  base: Readonly<Vec3>;
+  gustStrength: number;
+  gustFrequency: number;
+  turbulence: number;
+}
+
+const DEFAULT_WIND: WindConfig = {
+  base: vec3(15, -5, 0), // Gentle breeze from left, slight upward
+  gustStrength: 40,
+  gustFrequency: 0.3,
+  turbulence: 8,
+};
+
+// ============================================================================
+// Depth configuration (for orthographic projection)
+// ============================================================================
+
+// Z range for depth sorting and alpha modulation
+const DEPTH_RANGE = { near: -200, far: 400 };
+
+// ============================================================================
+// Blossom Particle System
+// ============================================================================
+
+const MARGIN = 100;
+const MAX_PARTICLES = 2000;
+
+export class BlossomSystem {
+  private pool: Blossom[] = [];
+  private active: Blossom[] = [];
+  private canvas: HTMLCanvasElement;
+  private ctx: CanvasRenderingContext2D;
+  private scale: number = 1;
+
+  private sprites: BlossomSpriteCollection;
+
+  // Wind state
+  private wind: Readonly<WindConfig> = DEFAULT_WIND;
+  private currentGust: Vec3 = zeroVec3();
+
+  // World bounds (in reference coordinate space, same as metro canvas)
+  private bounds = { minX: -100, maxX: 2100, minY: -200, maxY: 1200 };
+
+  // Default color
+  private defaultColor = "#DE0010";
+
+  constructor(width: number, height: number) {
+    this.canvas = document.createElement("canvas");
+    this.canvas.width = width;
+    this.canvas.height = height;
+    const ctx = this.canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas 2D not supported");
+    this.ctx = ctx;
+
+    this.sprites = new BlossomSpriteCollection();
+  }
+
+  public getCanvas(): HTMLCanvasElement {
+    return this.canvas;
+  }
+
+  public resize(rect: Rect, refRect: Rect) {
+    const aspectRatio = refRect.width / refRect.height;
+    const containerRatio = rect.width / rect.height;
+
+    if (containerRatio > aspectRatio) {
+      this.canvas.height = rect.height;
+      this.canvas.width = rect.height * aspectRatio;
+      this.scale = rect.height / refRect.height;
+    } else {
+      this.canvas.width = rect.width;
+      this.canvas.height = rect.width / aspectRatio;
+      this.scale = rect.width / refRect.width;
+    }
+
+    // Update bounds to match reference coordinate space
+    this.bounds = {
+      minX: -MARGIN,
+      maxX: refRect.width + MARGIN,
+      minY: -MARGIN * 2,
+      maxY: refRect.height + MARGIN,
+    };
+  }
+
+  public initPool(n: number) {
+    const count = Math.min(n, MAX_PARTICLES);
+    for (let i = 0; i < count; i++) {
+      this.pool.push(this.createEmpty());
+    }
+  }
+
+  public getActiveCount(): number {
+    return this.active.length;
+  }
+
+  public setWind(config: Partial<WindConfig>) {
+    Object.assign(this.wind, config);
+  }
+
+  /**
+   * Generate a random unit vector within a cone
+   * @param spreadDeg Half-angle of cone in degrees
+   * @param upwardBias Bias toward negative Y (upward on screen)
+   */
+  private randomUnitVectorInCone(spreadDeg: number, upwardBias: number = 0.3): Readonly<Vec3> {
+    const spreadRad = (spreadDeg * Math.PI) / 180;
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.acos(1 - Math.random() * (1 - Math.cos(spreadRad)));
+
+    const sinPhi = Math.sin(phi);
+    const cosPhi = Math.cos(phi);
+
+    const x = sinPhi * Math.cos(theta);
+    const y = -cosPhi * upwardBias + sinPhi * Math.sin(theta) * (1 - upwardBias);
+    const z = sinPhi * Math.sin(theta) * 0.5 + cosPhi * (1 - upwardBias);
+
+    const mag = Math.sqrt(x * x + y * y + z * z);
+    return vec3(x / mag, y / mag, z / mag);
+  }
+
+  /**
+   * Emit a burst of blossoms for a specific event type
+   */
+  public emitBurst(
+    cfg: EmitterConfig,
+    options: {
+      x: number;
+      y: number;
+      z?: number;
+      color?: string;
+      intensity?: number;
+    },
+  ) {
+    const intensity = options.intensity ?? 1.0;
+    const color = options.color ?? this.defaultColor;
+    const zBase = options.z ?? 0;
+
+    // LOD: reduce count if too many active particles
+    const lodFactor = this.active.length > 1000 ? 1000 / this.active.length : 1;
+    const count = Math.round(cfg.baseCount * intensity * lodFactor);
+
+    for (let i = 0; i < count; i++) {
+      const p = this.getParticle();
+      if (!p) break;
+
+      // Spawn position with spread
+      p.pos.x = options.x + (Math.random() * 2 - 1) * cfg.spawnRadius;
+      p.pos.y = options.y + (Math.random() * 2 - 1) * cfg.spawnRadius;
+      p.pos.z = zBase + cfg.zBias + (Math.random() * 2 - 1) * cfg.zVar;
+
+      // Velocity in spherical cone
+      const dir = this.randomUnitVectorInCone(cfg.spreadDeg, 0.6);
+      const speed = cfg.speed + (Math.random() * 2 - 1) * cfg.speedVar;
+      p.vel.x = dir.x * speed;
+      p.vel.y = dir.y * speed;
+      p.vel.z = dir.z * speed;
+
+      // Life
+      p.life = cfg.life + (Math.random() * 2 - 1) * cfg.lifeVar;
+      p.ttl = p.life;
+
+      // Size
+      p.size = cfg.size + (Math.random() * 2 - 1) * cfg.sizeVar;
+
+      // Mass
+      p.mass = 0.5 + Math.random() * 0.5;
+
+      // Initial rotation
+      p.rot.x = Math.random() * Math.PI * 2;
+      p.rot.y = Math.random() * Math.PI * 2;
+      p.rot.z = Math.random() * Math.PI * 2;
+
+      // Angular velocity
+      p.spin.x = (Math.random() * 2 - 1) * cfg.angularVar;
+      p.spin.y = (Math.random() * 2 - 1) * cfg.angularVar;
+      p.spin.z = (Math.random() * 2 - 1) * cfg.angularVar * 1.5;
+
+      p.color = color;
+      p.spriteId = Math.floor(Math.random() * this.sprites.numVariants);
+    }
+  }
+
+  /**
+   * Main update loop: physics + render
+   */
+  public update(dt: number, time: number) {
+    const ctx = this.ctx;
+    ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+    if (!this.sprites.isLoaded) return;
+
+    // Cap dt to prevent explosion on tab switch
+    dt = Math.min(dt, 0.1);
+
+    // Update wind
+    this.updateWind(dt);
+
+    ctx.save();
+    ctx.scale(this.scale, this.scale);
+
+    // Sort by depth (far to near for painter's algorithm)
+    this.active.sort((a, b) => a.pos.z - b.pos.z);
+
+    // Update and render each particle
+    for (let i = this.active.length - 1; i >= 0; i--) {
+      const p = this.active[i];
+      if (!p) continue;
+
+      p.ttl -= dt;
+      if (p.ttl <= 0) {
+        this.recycleParticle(p, i);
+        continue;
+      }
+
+      // Physics
+      this.applyPhysics(p, dt, time);
+
+      // Bounds check
+      if (p.pos.y > this.bounds.maxY + 100 || p.pos.x < this.bounds.minX - 100) {
+        this.recycleParticle(p, i);
+        continue;
+      }
+
+      // Render
+      this.renderBlossom(p, ctx);
+    }
+
+    ctx.restore();
+  }
+
+  private updateWind(dt: number) {
+    // Generate new gust periodically
+    if (Math.random() < this.wind.gustFrequency * dt) {
+      this.currentGust.x = (Math.random() - 0.3) * this.wind.gustStrength;
+      this.currentGust.y = (Math.random() - 0.5) * this.wind.gustStrength * 0.3;
+      this.currentGust.z = (Math.random() - 0.5) * this.wind.gustStrength * 0.5;
+    }
+
+    // Decay gust
+    const decay = 0.98;
+    this.currentGust.x *= decay;
+    this.currentGust.y *= decay;
+    this.currentGust.z *= decay;
+  }
+
+  private applyPhysics(p: Blossom, dt: number, time: number) {
+    // Physics constants
+    const physGravityZ = 6;
+    const physBuoyancyZ = 28;
+    const physDrag = 0.985;
+
+    // Wind influence (inversely proportional to mass)
+    const windFactor = 1 / p.mass;
+
+    // Turbulence
+    const turbX = Math.sin(time * 2 + p.pos.x * 0.01) * this.wind.turbulence;
+    const turbY = Math.cos(time * 1.5 + p.pos.y * 0.01) * this.wind.turbulence * 0.5;
+    const turbZ = Math.sin(time * 1.8 + p.pos.z * 0.01) * this.wind.turbulence * 0.3;
+
+    // Total wind force
+    const windX = (this.wind.base.x + this.currentGust.x + turbX) * windFactor;
+    const windY = (this.wind.base.y + this.currentGust.y + turbY) * windFactor;
+    const windZ = (this.wind.base.z + this.currentGust.z + turbZ) * windFactor;
+
+    // Apply wind acceleration
+    p.vel.x += windX * dt;
+    p.vel.y += windY * dt;
+    p.vel.z += windZ * dt;
+
+    // Gravity (positive Y is down)
+    const gravity = physGravityZ * (p.size / 12);
+    p.vel.y += gravity * dt;
+
+    // Buoyancy
+    const buoyancy = (physBuoyancyZ / p.mass) * 0.5;
+    p.vel.y -= buoyancy * dt;
+    p.vel.z += buoyancy * dt * 0.3;
+
+    // Drag
+    p.vel.x *= physDrag;
+    p.vel.y *= physDrag;
+    p.vel.z *= physDrag;
+
+    // Flutter effect
+    const flutter = Math.sin(p.rot.x * 2 + p.rot.z) * 15 * (1 / p.mass);
+    p.vel.y += flutter * dt * 0.5;
+
+    // Update position
+    p.pos.x += p.vel.x * dt;
+    p.pos.y += p.vel.y * dt;
+    p.pos.z += p.vel.z * dt;
+
+    // Update rotation
+    const speedFactor = vec3Mag(p.vel) * 0.01;
+    p.rot.x += p.spin.x * dt * (1 + speedFactor);
+    p.rot.y += p.spin.y * dt * (1 + speedFactor);
+    p.rot.z += p.spin.z * dt * (1 + speedFactor * 0.5);
+
+    // Wind affects spin
+    p.spin.z += windX * 0.02 * dt;
+    p.spin.x += windY * 0.01 * dt;
+  }
+
+  private renderBlossom(p: Blossom, ctx: CanvasRenderingContext2D) {
+    // Get tinted sprites
+    const sprites = this.sprites.getTintedSprites(p.color);
+    if (!sprites || sprites.length === 0) return;
+
+    const sprite = sprites[p.spriteId % sprites.length];
+    if (!sprite) return;
+
+    // Subtle depth-based size modulation (closer = slightly larger)
+    const depthNorm = (p.pos.z - DEPTH_RANGE.near) / (DEPTH_RANGE.far - DEPTH_RANGE.near);
+    const depthScale = 1.0 + (1 - depthNorm) * 0.15; // 1.0 to 1.15
+    const screenSize = p.size * depthScale;
+
+    if (screenSize < 1) return;
+
+    // Depth-based alpha (farther = more transparent)
+    const depthAlpha = Math.max(0.3, Math.min(1, 1 - depthNorm * 0.5));
+    // Life-based alpha (fade out near end)
+    const lifeAlpha = p.ttl > 0.3 ? 1 : p.ttl / 0.3;
+    const alpha = depthAlpha * lifeAlpha * 0.9;
+
+    sprite.render(ctx, p.pos, p.rot, screenSize, alpha);
+  }
+
+  private createEmpty(): Blossom {
+    return {
+      alive: false,
+      pos: zeroVec3(),
+      vel: zeroVec3(),
+      rot: zeroVec3(),
+      spin: zeroVec3(),
+      size: 12,
+      life: 0,
+      ttl: 0,
+      mass: 1,
+      color: this.defaultColor,
+      spriteId: 0,
+    };
+  }
+
+  private getParticle(): Blossom | null {
+    const p = this.pool.pop();
+    if (p) {
+      p.alive = true;
+      this.active.push(p);
+      return p;
+    }
+
+    if (this.active.length >= MAX_PARTICLES && this.active.length > 0) {
+      const reuse = this.active.shift();
+      if (reuse) {
+        reuse.alive = true;
+        this.active.push(reuse);
+        return reuse;
+      }
+    }
+
+    if (this.active.length < MAX_PARTICLES) {
+      const newP = this.createEmpty();
+      newP.alive = true;
+      this.active.push(newP);
+      return newP;
+    }
+
+    return null;
+  }
+
+  private recycleParticle(p: Blossom, index: number) {
+    p.alive = false;
+    this.pool.push(p);
+    this.active.splice(index, 1);
+  }
+
+  public clear() {
+    for (const p of this.active) {
+      p.alive = false;
+      this.pool.push(p);
+    }
+    this.active.length = 0;
+  }
+
+  /**
+   * Trigger a strong gust of wind
+   */
+  public triggerGust(strength: number = 1) {
+    this.currentGust.x = (Math.random() - 0.2) * this.wind.gustStrength * strength * 2;
+    this.currentGust.y = (Math.random() - 0.6) * this.wind.gustStrength * strength;
+    this.currentGust.z = (Math.random() - 0.5) * this.wind.gustStrength * strength;
+  }
+}

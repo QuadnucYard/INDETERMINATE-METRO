@@ -21,7 +21,7 @@ export async function loadRidershipData(csvPath: string) {
     return { ridershipMap: new Map(), sortedDays: [], lineIds: [] };
   }
   const header = headerLine.split(",").map((s) => s.trim());
-  // header: date,  <line ids...>
+  // header: date, total, <line ids...>
   const lineIds = header.slice(1) as LineId[];
 
   const ridershipMap = new Map<LineId, Record<StationId, number>>();

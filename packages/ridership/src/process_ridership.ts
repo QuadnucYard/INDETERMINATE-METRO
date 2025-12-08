@@ -3,6 +3,8 @@ import path from "node:path";
 import * as _ from "radash";
 import { parsePostContent } from "./parse-content";
 
+export const TOTAL = "total";
+
 const DATA_DIR = path.join(process.cwd(), "../../data");
 const INPUT_DATA_PATH = path.join(DATA_DIR, "ridership.json");
 const OUTPUT_CSV_PATH = path.join(DATA_DIR, "ridership.csv");
@@ -13,6 +15,7 @@ type RidershipEntry = {
   date: string; // ISO date
   rawDate: string; // original raw date string
   counts: Record<string, number>; // lineId -> count
+  total: number;
 };
 
 function parseRidershipData(rawRidership: RawEntry[]) {
@@ -37,15 +40,18 @@ function parseRidershipData(rawRidership: RawEntry[]) {
     iso.setUTCDate(iso.getUTCDate() - 1);
     const isoLabel = iso.toISOString().slice(0, 10);
 
-    const counts = parsePostContent(entry.content);
+    const { counts, total } = parsePostContent(entry.content);
     if (Object.keys(counts).length === 0) {
       // No data parsed
       continue;
     }
+    if (total === undefined) {
+      console.warn(`Warning: no total found for entry on ${isoLabel} (${entry.date})`);
+    }
     for (const k of Object.keys(counts)) {
       allLineIds.add(k);
     }
-    ridershipData.push({ date: isoLabel, rawDate: entry.date, counts: counts });
+    ridershipData.push({ date: isoLabel, rawDate: entry.date, counts: counts, total: total ?? 0 });
   }
 
   ridershipData.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
@@ -62,9 +68,9 @@ function parseRidershipData(rawRidership: RawEntry[]) {
 }
 
 function dumpRidershipCSV(ridershipData: RidershipEntry[], allLineIds: string[]): string {
-  let csvContent = `${["date", ...allLineIds].join(",")}\n`;
+  let csvContent = `${["date", TOTAL, ...allLineIds].join(",")}\n`;
   for (const entry of ridershipData) {
-    const row = [entry.date];
+    const row = [entry.date, entry.total.toString() ?? ""];
     for (const id of allLineIds) {
       row.push(entry.counts[id]?.toString() ?? "");
     }

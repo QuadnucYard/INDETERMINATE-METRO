@@ -28,9 +28,10 @@ const dirtyMap: Record<string, string> = { "73": "3" };
 // Helpers to normalize Chinese numerals
 const normalizeChineseNum = (tok: string) => chineseMap[tok] ?? tok;
 
-export const parsePostContent = (content: string): Record<string, number> => {
-  // console.log("Original content:", content);
-  // Normalize
+export const parsePostContent = (
+  content: string,
+): { counts: Record<string, number>; total?: number } => {
+  // Normalize the content
   const s = content
     .replace(/\n/g, "")
     .replace(/（/g, "(")
@@ -41,14 +42,13 @@ export const parsePostContent = (content: string): Record<string, number> => {
     .replace(/([一二三四五六七八九十])(?:号线|号)/g, (_, p1) => `,${normalizeChineseNum(p1)}号线`) // normalize Chinese numerals
     .replace(/(S\d+)?(机场|宁.)线?/g, (_, p1, p2) => `,${aliasMap[p2] ?? p1 ?? p2}号线`); // normalize S-prefixed aliases
 
-  const out: Record<string, number> = {};
+  const counts: Record<string, number> = {};
 
   // Match the line name
   // It can have the following forms:
   // 1号线, 10号线, 一号线, 1号, S1号线, S1机场线, S3宁和线, 机场线
   // where some are mistakes
   // A number follows the name (possibly plus some additional irrelevant characters). The number may be without unit "万".
-  // console.log("Parsing content:", s);
   const re = /(S?\d+| )(?:号线|号),?\s*([0-9]+(?:\.[0-9]+)?)/g;
 
   let m: RegExpExecArray | null = null;
@@ -61,9 +61,20 @@ export const parsePostContent = (content: string): Record<string, number> => {
       // Fixup known dirty/garbled ids: e.g. "73号线" is a common bad parse that should map to "3"
       const canonical = dirtyMap[name] ?? name;
       // heuristic: values > 1000 likely mean raw person counts -> convert into 万
-      out[canonical] = val > 1000 ? val / 10000 : val;
+      counts[canonical] = val > 1000 ? val / 10000 : val;
     }
   }
 
-  return out;
+  // Extract total
+  const totalRe = /(?:客运量?约?为?近?|全线网客运?)\s*([0-9]+(?:\.[0-9]+)?)/;
+  const totalMatch = totalRe.exec(s);
+  let total: number | undefined;
+  if (totalMatch?.[1]) {
+    const totalVal = parseFloat(totalMatch[1]);
+    if (!Number.isNaN(totalVal)) {
+      total = totalVal > 1000 ? totalVal / 10000 : totalVal;
+    }
+  }
+
+  return { counts, total };
 };

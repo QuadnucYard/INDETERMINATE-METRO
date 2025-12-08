@@ -119,35 +119,37 @@ export class MetroModel {
       return st;
     };
 
+    const updateStates = (
+      targetStations: StationId[],
+      segment: StationId[],
+      newState: ServiceState,
+    ) => {
+      // Update target stations
+      for (const sid of targetStations) {
+        const st = getStation(sid);
+        st.state = newState;
+      }
+
+      // Update edge active states
+      for (const sid of segment.slice(1)) {
+        const st = getStation(sid);
+        const node = st.node;
+        node.edgeState = newState;
+      }
+    };
+
     // Handle fullStations for deferred openings
     if (newState === ServiceState.Open && event.fullStations) {
-      const { subset: fullStationsList } = this.resolveOperatedStations(
+      const { segment: fullSegment, subset: fullStationsList } = this.resolveOperatedStations(
         event.line,
         event.fullStations,
       );
       // Stations in fullStations but not in stations are deferred (show as suspended)
-      for (const sid of fullStationsList) {
-        if (!targetStations.includes(sid)) {
-          const st = getStation(sid);
-          if (st.state === ServiceState.Never) {
-            st.state = ServiceState.Suspended; // Deferred opening - exists but suspended
-          }
-        }
-      }
+      updateStates(fullStationsList, fullSegment, ServiceState.Suspended);
     }
 
-    // Update target stations
-    for (const sid of targetStations) {
-      const st = getStation(sid);
-      st.state = newState;
-    }
-
-    // Update edge active states and node degrees
-    for (const sid of segment.slice(1)) {
-      const st = getStation(sid);
-      const node = st.node;
-      node.edgeState = newState;
-    }
+    // Update the target stations. The previous step ensures deferred stations are marked as Suspended.
+    updateStates(targetStations, segment, newState);
 
     const hasOpen = line.stations.values().some((st) => st.state === ServiceState.Open);
     if (hasOpen) {

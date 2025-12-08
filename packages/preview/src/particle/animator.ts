@@ -1,5 +1,6 @@
 import { Rgb } from "../color";
 import { type LineData, type PreviewData, ServiceState } from "../types";
+import { getStationPositionAtDay } from "../utils";
 import { EMITTER_PRESETS } from "./presets";
 import type { ParticleSystem } from "./system";
 import type { EmitterConfig, StrokeSegment, Vec2 } from "./types";
@@ -69,7 +70,7 @@ export class ParticleAnimator {
       let maxY = -Infinity;
 
       for (const s of line.stations) {
-        if (s.existsFromDay <= day && s.positions[0]) {
+        if (s.positions[0]) {
           minY = Math.min(minY, s.positions[0].y);
           maxY = Math.max(maxY, s.positions[0].y);
         }
@@ -124,26 +125,21 @@ export class ParticleAnimator {
 
       // Station appearance and state changes
       for (const station of line.stations) {
-        const firstPos = station.positions[0];
-        if (station.existsFromDay > 0 && firstPos) {
-          trigger(station.existsFromDay, [PRESETS.stationPop], line, { x: line.x, y: firstPos.y });
-        }
+        // Station service state changes
+        for (let i = 0; i < station.service.length; i++) {
+          const pt = station.service[i];
+          if (!pt) continue;
 
-        if (station.service) {
-          // Station service state changes
-          for (let i = 0; i < station.service.length; i++) {
-            const pt = station.service[i];
-            if (!pt) continue;
+          const prevState = station.service[i - 1]?.state ?? ServiceState.Never;
+          const pos = getStationPositionAtDay(station, pt.day);
+          if (!pos) continue;
 
-            const prevState = station.service[i - 1]?.state ?? ServiceState.Open;
-            const pos = station.positions.find((p) => p.day <= pt.day);
-            if (!pos) continue;
-
-            if (prevState === ServiceState.Open && pt.state === ServiceState.Suspended) {
-              trigger(pt.day, [PRESETS.stationSuspendFade], line, { x: line.x, y: pos.y });
-            } else if (prevState === ServiceState.Suspended && pt.state === ServiceState.Open) {
-              trigger(pt.day, [PRESETS.stationResumeGlow], line, { x: line.x, y: pos.y });
-            }
+          if (prevState === ServiceState.Never && pt.state === ServiceState.Open) {
+            trigger(pt.day, [PRESETS.stationSuspendFade], line, pos);
+          } else if (prevState === ServiceState.Open && pt.state === ServiceState.Suspended) {
+            trigger(pt.day, [PRESETS.stationSuspendFade], line, pos);
+          } else if (prevState === ServiceState.Suspended && pt.state === ServiceState.Open) {
+            trigger(pt.day, [PRESETS.stationResumeGlow], line, pos);
           }
         }
       }

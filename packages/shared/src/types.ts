@@ -28,11 +28,10 @@ export type StationData = {
   id: StationId;
   name: string;
   translation?: string;
-  existsFromDay: number;
   // sparse position change points (sorted by day)
   positions: KeyedArray<Vec2>;
-  // optional sparse service points (small)
-  service?: KeyedArray<{ state: ServiceState }>;
+  // Sparse service points
+  service: KeyedArray<{ state: ServiceState }>;
 };
 
 export type LineData = {

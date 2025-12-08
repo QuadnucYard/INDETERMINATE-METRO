@@ -1,14 +1,14 @@
 import assert from "node:assert";
 import fs from "node:fs/promises";
 import path from "node:path";
-import {
-  type LineData,
-  type LineId,
-  type PreviewData,
-  type PreviewMeta,
+import type {
+  LineData,
+  LineId,
+  PreviewData,
+  PreviewMeta,
   ServiceState,
-  type StationId,
-  type Vec2,
+  StationId,
+  Vec2,
 } from "im-shared/types";
 import { calculateStationPositions } from "./layout";
 import { MetroModel } from "./model";
@@ -64,7 +64,6 @@ function simulate(
           id: s[0], // Use Chinese name as ID
           name: s[0],
           translation: s[1],
-          existsFromDay: Number.MAX_SAFE_INTEGER, // default to never
           positions: [],
           service: [],
         })),
@@ -134,11 +133,6 @@ function simulate(
         line.service = snapshot.lineState;
       }
 
-      // Layout Stations
-
-      // Store raw ridership value
-      lineIR.ridership.push(dailyCounts[lineId] ?? 0);
-
       if (snapshot.routes.length > 0 || line.routesCode !== undefined) {
         const routesCode = JSON.stringify(snapshot.routes);
         if (line.routesCode !== routesCode) {
@@ -149,7 +143,7 @@ function simulate(
         }
       }
 
-      // Layout Stations with branch config
+      // Layout Stations
       const stationPositions = calculateStationPositions(
         line.routes,
         snapshot.stations,
@@ -169,17 +163,8 @@ function simulate(
 
         const state = stationSnapshot.state;
         if (station.service !== state) {
-          if (!stIR.service) stIR.service = [];
           stIR.service.push({ day: i, state: state });
           station.service = state;
-        }
-
-        // Exists From Day
-        if (
-          (state === ServiceState.Open || state === ServiceState.Suspended) &&
-          stIR.existsFromDay > i
-        ) {
-          stIR.existsFromDay = i;
         }
 
         // Position (Sparse)

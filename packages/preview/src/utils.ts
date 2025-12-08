@@ -20,8 +20,6 @@ export function getStateAtDay(statePoints: KeyedState[], day: number): ServiceSt
  * Get station position (x, y) at a given day from sparse position points
  */
 export function getStationPositionAtDay(station: StationData, day: number): Vec2 | undefined {
-  if (day < station.existsFromDay) return undefined;
-
   return station.positions.findLast((p) => p.day <= day);
 }
 
@@ -29,9 +27,6 @@ export function getStationPositionAtDay(station: StationData, day: number): Vec2
  * Get station service state at a given day
  */
 export function getStationStateAtDay(station: StationData, day: number): ServiceState {
-  if (!station.service || station.service.length === 0) {
-    return day >= station.existsFromDay ? ServiceState.Open : ServiceState.Never;
-  }
   return getStateAtDay(station.service, day);
 }
 

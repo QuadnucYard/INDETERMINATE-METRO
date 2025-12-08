@@ -151,10 +151,12 @@ export class MetroModel {
     // Update the target stations. The previous step ensures deferred stations are marked as Suspended.
     updateStates(targetStations, segment, newState);
 
-    const hasOpen = line.stations.values().some((st) => st.state === ServiceState.Open);
-    if (hasOpen) {
+    if (line.stations.values().some((st) => st.state === ServiceState.Open)) {
       // If any station is Open, line is Open.
       line.state = ServiceState.Open;
+    } else if (line.stations.values().some((st) => st.state === ServiceState.Suspended)) {
+      // If any station is Suspended, line is Suspended.
+      line.state = ServiceState.Suspended;
     }
   }
 

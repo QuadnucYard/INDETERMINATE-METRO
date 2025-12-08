@@ -1,7 +1,13 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.3.8/schema.json",
   "linter": {
-    "includes": ["**", "!*.jsx", "!**/dist/**"]
+    "includes": ["**", "!*.jsx", "!**/dist/**"],
+    "rules": {
+      "complexity": {
+        "useLiteralKeys": "off"
+      },
+      "suspicious": { "noAssignInExpressions": "off" }
+    }
   },
   "formatter": {
     "indentStyle": "space",

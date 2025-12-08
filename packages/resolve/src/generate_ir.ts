@@ -1,14 +1,14 @@
 import assert from "node:assert";
 import fs from "node:fs/promises";
 import path from "node:path";
-import type {
-  LineData,
-  LineId,
-  PreviewData,
-  PreviewMeta,
+import {
   ServiceState,
-  StationId,
-  Vec2,
+  type LineData,
+  type LineId,
+  type PreviewData,
+  type PreviewMeta,
+  type StationId,
+  type Vec2,
 } from "im-shared/types";
 import { calculateStationPositions } from "./layout";
 import { MetroModel } from "./model";
@@ -122,9 +122,6 @@ function simulate(
       const line = tracked.get(lineId);
       assert(line);
 
-      // Store raw ridership value
-      lineIR.ridership.push(dailyCounts[lineId] ?? 0);
-
       const snapshot = model.snapshot(lineId);
 
       // Line Service State (Sparse)
@@ -132,6 +129,12 @@ function simulate(
         lineIR.statePoints.push({ day: i, state: snapshot.lineState });
         line.service = snapshot.lineState;
       }
+
+      // Store raw ridership value
+      if (line.service === ServiceState.Open && !(lineId in dailyCounts)) {
+        console.error(`No ridership data for line ${lineId} on date ${date}`);
+      }
+      lineIR.ridership.push(dailyCounts[lineId] ?? 0);
 
       if (snapshot.routes.length > 0 || line.routesCode !== undefined) {
         const routesCode = JSON.stringify(snapshot.routes);

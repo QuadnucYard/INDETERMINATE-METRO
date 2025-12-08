@@ -1,5 +1,6 @@
 import {
   type ActiveLineStations,
+  type KeyedArray,
   type KeyedState,
   type LineData,
   ServiceState,
@@ -32,6 +33,17 @@ export function getStationStateAtDay(station: StationData, day: number): Service
     return day >= station.existsFromDay ? ServiceState.Open : ServiceState.Never;
   }
   return getStateAtDay(station.service, day);
+}
+
+/**
+ * Get route segments at a given day from sparse route points
+ */
+export function getRouteSegmentsAtDay(
+  routePoints: KeyedArray<{ value: StationId[][] }>,
+  day: number,
+): StationId[][] {
+  const found = routePoints.findLast((p) => p.day <= day);
+  return found?.value ?? [];
 }
 
 /**

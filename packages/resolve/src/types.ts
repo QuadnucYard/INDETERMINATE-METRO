@@ -5,8 +5,11 @@ export type LineMeta = {
   color: string; // hex color, e.g. "#ff0000"
   x?: number; // desired x position in pixels
   stations: [StationId, string][]; // list of [station name, translation] pairs
-  branchStations?: [string, string][]; // optional list of branch line stations
+  routes?: Route[];
 };
+
+/** An array whose item is either a single station or an interval */
+export type Route = (StationId | { from: StationId; to: StationId })[];
 
 export type EventRecord = {
   date: string; // "YYYY-MM-DD"

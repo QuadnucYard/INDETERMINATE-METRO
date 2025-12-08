@@ -26,14 +26,17 @@ const CONFIG = {
   height: 1080,
   topPadding: 50,
   bottomPadding: 50,
+  branchOffset: 30, // x offset between main and branch stems
 };
 
-interface LineState {
+interface TrackedLineState {
   service?: ServiceState;
-  stations: Map<StationId, StationState>;
+  routes: StationId[][];
+  routesCode?: string;
+  stations: Map<StationId, TrackedStationState>;
 }
 
-interface StationState {
+interface TrackedStationState {
   service?: ServiceState;
   position?: Vec2;
 }
@@ -50,12 +53,13 @@ function simulate(
   // Initialize IR structures
   const linesIR: Record<LineId, LineData> = Object.fromEntries(
     linesMeta.map((lm, index) => {
-      const v = {
+      const v: LineData = {
         id: lm.id,
         colorHex: lm.color,
         x: lm.x ?? 160 + index * 80,
         ridership: [],
         statePoints: [],
+        routePoints: [],
         stations: lm.stations.map((s) => ({
           id: s[0], // Use Chinese name as ID
           name: s[0],
@@ -77,10 +81,13 @@ function simulate(
   };
 
   // Track previous state to detect changes
-  const tracked = new Map<LineId, LineState>(
+  const tracked = new Map<LineId, TrackedLineState>(
     linesMeta.map((lm) => [
       lm.id,
-      { stations: new Map<StationId, StationState>(lm.stations.map((s) => [s[0], {}])) },
+      {
+        routes: [],
+        stations: new Map<StationId, TrackedStationState>(lm.stations.map((s) => [s[0], {}])),
+      },
     ]),
   );
 
@@ -128,16 +135,31 @@ function simulate(
       }
 
       // Layout Stations
+
+      // Store raw ridership value
+      lineIR.ridership.push(dailyCounts[lineId] ?? 0);
+
+      if (snapshot.routes.length > 0 || line.routesCode !== undefined) {
+        const routesCode = JSON.stringify(snapshot.routes);
+        if (line.routesCode !== routesCode) {
+          lineIR.routePoints.push({ day: i, value: snapshot.routes });
+          line.routes = snapshot.routes;
+          line.routesCode = routesCode;
+          console.log(`Day ${i} (${date}): Line ${lineId} routes changed:`, snapshot.routes);
+        }
+      }
+
+      // Layout Stations with branch config
       const stationPositions = calculateStationPositions(
-        model.stationOrder.get(lineId) ?? [],
-        snapshot.stationStates,
+        line.routes,
+        snapshot.stations,
         lineIR.x,
         CONFIG.topPadding,
         CONFIG.height - CONFIG.bottomPadding,
       );
 
       // Update Station IR
-      for (const [stationId, state] of snapshot.stationStates) {
+      for (const [stationId, stationSnapshot] of snapshot.stations) {
         const stIR = getStationIR(lineId, stationId);
         assert(stIR, `Station IR missing for ${stationId} on line ${lineId}`);
 
@@ -145,9 +167,10 @@ function simulate(
         const station = line.stations.get(stationId);
         assert(station);
 
+        const state = stationSnapshot.state;
         if (station.service !== state) {
           if (!stIR.service) stIR.service = [];
-          stIR.service.push({ day: i, state });
+          stIR.service.push({ day: i, state: state });
           station.service = state;
         }
 

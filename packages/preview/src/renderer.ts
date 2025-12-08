@@ -16,7 +16,7 @@ import {
   type StationId,
   type Vec2,
 } from "./types";
-import { getActiveStations, getStateAtDay } from "./utils";
+import { getActiveStations, getRouteSegmentsAtDay, getStateAtDay } from "./utils";
 
 const LINE_MARGIN = 5;
 const STATION_RADIUS = 6;
@@ -73,6 +73,7 @@ export class MetroRenderer {
       line: LineData;
       positions?: Map<StationId, Vec2>;
       activeStations: ActiveLineStations;
+      routeSegments: Vec2[][];
       widthPx: number;
       opacity: number;
       color: Rgb;
@@ -92,6 +93,17 @@ export class MetroRenderer {
       const activeStations = getActiveStations(line, dayIndex, positions);
       if (activeStations.activeStations.length === 0) continue;
 
+      // Get route segments for this line (or fallback to simple stem)
+      const rawRouteSegments = getRouteSegmentsAtDay(line.routePoints, dayIndex);
+      const routeSegments = rawRouteSegments.map((segment) =>
+        segment
+          .map((sid) => {
+            const st = activeStations.activeStations.find((s) => s.station.id === sid);
+            return st?.pos;
+          })
+          .filter((pos) => pos !== undefined),
+      );
+
       const ridership = line.ridership[dayIndex] ?? line.ridership.at(-1) ?? 0;
       const widthPx = calculateWidth(ridership / 100) * styles.widthScale;
       const opacity = lineState === ServiceState.Suspended ? 0.4 : 1;
@@ -100,6 +112,7 @@ export class MetroRenderer {
         line,
         positions,
         activeStations,
+        routeSegments,
         widthPx,
         opacity,
         color: Rgb.fromHex(line.colorHex),
@@ -116,7 +129,12 @@ export class MetroRenderer {
 
     // Pass 1: Draw all line stems
     for (const rd of lineRenderData) {
-      this.renderLineStem(rd.activeStations, rd.widthPx, rd.color.withAlpha(rd.opacity));
+      this.renderLineStem(
+        rd.activeStations,
+        rd.routeSegments,
+        rd.widthPx,
+        rd.color.withAlpha(rd.opacity),
+      );
     }
 
     // Pass 2: Draw all stations
@@ -135,9 +153,15 @@ export class MetroRenderer {
   }
 
   /**
-   * Draw the line stem (the main vertical line and branch connectors)
+   * Draw the line stem using route segments
+   * Each segment is a polyline connecting station positions
    */
-  private renderLineStem(stationData: ActiveLineStations, widthPx: number, color: Rgba) {
+  private renderLineStem(
+    stationData: ActiveLineStations,
+    routeSegments: Vec2[][],
+    widthPx: number,
+    color: Rgba,
+  ) {
     const { activeStations, firstPos, lastPos } = stationData;
 
     if (activeStations.length === 0) return;
@@ -147,14 +171,42 @@ export class MetroRenderer {
     ctx.strokeStyle = color.toCss();
     ctx.lineWidth = widthPx;
     ctx.lineCap = "round";
+    ctx.lineJoin = "round";
     ctx.shadowBlur = widthPx;
     ctx.shadowColor = ctx.strokeStyle;
 
-    // Main line: simple vertical stem (uses animated x from stations)
-    ctx.beginPath();
-    ctx.moveTo(firstPos.x, firstPos.y - LINE_MARGIN);
-    ctx.lineTo(lastPos.x, lastPos.y + LINE_MARGIN);
-    ctx.stroke();
+    // If we have route segments, draw each as a polyline
+    if (routeSegments.length > 0) {
+      for (const segment of routeSegments) {
+        if (segment.length < 2) continue;
+
+        ctx.beginPath();
+        const first = segment[0];
+        if (first) {
+          ctx.moveTo(first.x, first.y - LINE_MARGIN);
+
+          for (let i = 1; i < segment.length; i++) {
+            const pt = segment[i];
+            if (pt) {
+              ctx.lineTo(pt.x, pt.y);
+            }
+          }
+
+          // Extend beyond last point
+          const last = segment[segment.length - 1];
+          if (last) {
+            ctx.lineTo(last.x, last.y + LINE_MARGIN);
+          }
+        }
+        ctx.stroke();
+      }
+    } else {
+      // Fallback: simple vertical stem (for lines without routes defined)
+      ctx.beginPath();
+      ctx.moveTo(firstPos.x, firstPos.y - LINE_MARGIN);
+      ctx.lineTo(lastPos.x, lastPos.y + LINE_MARGIN);
+      ctx.stroke();
+    }
   }
 
   /**

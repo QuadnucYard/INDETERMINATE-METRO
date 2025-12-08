@@ -43,6 +43,7 @@ export type LineData = {
   // raw ridership counts in 万人 (10k passengers) per day
   ridership: number[];
   statePoints: KeyedState[]; // sparse state transitions; sample discrete state
+  routePoints: KeyedArray<{ value: StationId[][] }>; // sparse route segments (each route is represented by array of station IDs)
   stations: StationData[];
 };
 

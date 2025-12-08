@@ -1,13 +1,13 @@
 [
   {
-    "date": "2005-9-3",
+    "date": "2005-09-03",
     "line": "1",
     "type": "open",
     "stations": { "from": "迈皋桥", "to": "奥体中心" }
   },
 
   {
-    "date": "2010-5-28",
+    "date": "2010-05-28",
     "line": "1",
     "type": "open",
     "stations": { "from": "安德门", "to": "中国药科大学", "except": ["南京南站"] }
@@ -20,14 +20,14 @@
   },
 
   {
-    "date": "2011-6-28",
+    "date": "2011-06-28",
     "line": "1",
     "type": "open",
     "stations": ["南京南站"]
   },
 
   {
-    "date": "2014-6-1",
+    "date": "2014-06-01",
     "line": "1",
     "type": "close",
     "stations": { "from": "安德门", "to": "奥体中心" }

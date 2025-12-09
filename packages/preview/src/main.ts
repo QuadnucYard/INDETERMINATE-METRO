@@ -22,6 +22,7 @@ function App() {
     speed: van.state(10),
     isPlaying: van.state(false),
     particleTimeScale: van.state(1),
+    rotationSpeedMultiplier: van.state(1),
   };
   const renderStyle: State<RenderStyle> = van.state({
     widthScale: 1,
@@ -31,8 +32,8 @@ function App() {
   const controls = createControls(
     controlsState,
     renderStyle,
-    van.derive(() => (data.val ? data.val.meta.days.length - 1 : 0)),
-    (day: number) => data.val?.meta.days[Math.floor(day)],
+    van.derive(() => (data.val ? data.val.days.length - 1 : 0)),
+    (day: number) => data.val?.days[Math.floor(day)],
   );
 
   useAnimation(data, controlsState);

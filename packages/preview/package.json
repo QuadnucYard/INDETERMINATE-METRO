@@ -12,9 +12,11 @@
   },
   "dependencies": {
     "im-shared": "workspace:*",
+    "three": "^0.181.2",
     "vanjs-core": "^1.6.0"
   },
   "devDependencies": {
+    "@types/three": "^0.181.0",
     "typescript": "^5.9.3",
     "vite": "^6.4.1"
   }

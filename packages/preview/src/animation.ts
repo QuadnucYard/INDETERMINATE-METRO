@@ -15,7 +15,7 @@ export function useAnimation(data: State<PreviewData | null>, controlsState: Con
     if (isPlaying.val && data.val) {
       const dt = (time - lastFrameTime) / 1000;
       const newDay = currentDay.val + speed.val * dt;
-      const maxDay = data.val.meta.days.length - 1;
+      const maxDay = data.val.days.length - 1;
 
       if (newDay >= maxDay) {
         currentDay.val = maxDay;

@@ -3,6 +3,7 @@ import {
   type KeyedArray,
   type KeyedState,
   type LineData,
+  type PreviewData,
   ServiceState,
   type StationData,
   type StationId,
@@ -22,6 +23,13 @@ export function getStateAtDay(statePoints: KeyedState[], day: number): ServiceSt
 export function getRidershipAtDay(line: LineData, day: number): number {
   const firstDay = line.firstDay ?? 0;
   return line.ridership[day - firstDay] ?? 0;
+}
+
+/**
+ * Get ridership count for the entire system at a given day
+ */
+export function getTotalRidershipAtDay(data: PreviewData, day: number): number {
+  return data.totalRiderships[day] ?? 0;
 }
 
 /**

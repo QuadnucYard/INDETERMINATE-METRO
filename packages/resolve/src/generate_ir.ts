@@ -71,6 +71,7 @@ function simulate(
       return [lm.id, v];
     }),
   );
+  const totalRiderships: number[] = [];
 
   // Helper to find station IR object
   const getStationIR = (lineId: LineId, stationId: StationId) => {
@@ -112,6 +113,7 @@ function simulate(
 
     // Get ridership
     const dailyCounts = ridershipMap.get(date) ?? {};
+    totalRiderships.push(dailyCounts["total"] ?? 0);
 
     // Process each line
     for (const lm of linesMeta) {
@@ -196,7 +198,7 @@ function simulate(
     console.warn(`Unapplied event on ${e.date} for line ${e.line}`);
   }
 
-  return linesIR;
+  return { linesData: linesIR, totalRiderships };
 }
 
 /**
@@ -254,17 +256,18 @@ async function main() {
   const allDays = extendDummyDays(sortedDays, eventsRaw);
 
   // Run simulation to generate PreviewData
-  const linesData = simulate(ridershipMap, allDays, eventsRaw, linesMeta);
+  const { linesData, totalRiderships } = simulate(ridershipMap, allDays, eventsRaw, linesMeta);
 
   // Finalize Data
   const meta: PreviewMeta = {
     width: CONFIG.width,
     height: CONFIG.height,
-    days: allDays,
   };
 
   const previewData: PreviewData = {
     meta,
+    days: allDays,
+    totalRiderships,
     lines: linesData,
   };
 

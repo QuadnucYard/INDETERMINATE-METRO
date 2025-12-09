@@ -51,10 +51,11 @@ export type LineData = {
 export type PreviewMeta = {
   width: number;
   height: number;
-  days: string[]; // ISO day strings; dayIndex = index
 };
 
 export type PreviewData = {
   meta: PreviewMeta;
+  days: string[]; // ISO day strings; dayIndex = index
+  totalRiderships: number[]; // total ridership per day in 万人
   lines: Record<LineId, LineData>;
 };

@@ -4,6 +4,7 @@ import { BlossomSchedule } from "./blossom/schedule";
 import { BlossomSystem } from "./blossom/system";
 import { Rgb, Rgba } from "./color";
 import type { ControlsState } from "./controls";
+import { ModelRenderer } from "./model-renderer";
 import { PositionAnimator } from "./position-animator";
 import {
   type ActiveLineStations,
@@ -21,6 +22,7 @@ import {
   getRidershipAtDay,
   getRouteSegmentsAtDay,
   getStateAtDay,
+  getTotalRidershipAtDay,
 } from "./utils";
 
 const LINE_MARGIN = 5;
@@ -374,6 +376,34 @@ function useBlossomRenderer(data: State<PreviewData | null>, controlsState: Cont
   return { resize, canvas: blossomSystem.getCanvas() };
 }
 
+function useModelRenderer(data: State<PreviewData | null>, controlsState: ControlsState) {
+  const renderer = new ModelRenderer();
+
+  let lastTime = performance.now();
+
+  function animate() {
+    const now = performance.now();
+    const dt = (now - lastTime) / 1000; // seconds
+    lastTime = now;
+
+    if (data.val) {
+      const day = Math.floor(controlsState.currentDay.val);
+      const totalRidership = getTotalRidershipAtDay(data.val, day);
+      const value = totalRidership / 100.0;
+      renderer.update(dt, value, controlsState.rotationSpeedMultiplier.val);
+    }
+
+    requestAnimationFrame(animate);
+  }
+  animate();
+
+  const resize = (_data: PreviewData, rect: Rect) => {
+    renderer.resize(rect);
+  };
+
+  return { resize, canvas: renderer.getCanvas() };
+}
+
 export function useRenderer(
   data: State<PreviewData | null>,
   controlsState: ControlsState,
@@ -383,9 +413,11 @@ export function useRenderer(
 
   const metroRenderer = useMetroRenderer(data, controlsState, styles);
   const blossomRenderer = useBlossomRenderer(data, controlsState);
+  const modelRenderer = useModelRenderer(data, controlsState);
 
   const canvasContainer = div(
     { class: "canvas-container" },
+    modelRenderer.canvas,
     metroRenderer.canvas,
     blossomRenderer.canvas,
   );
@@ -396,6 +428,7 @@ export function useRenderer(
     if (data.val && canvasSize.val) {
       metroRenderer.resize(data.val, canvasSize.val);
       blossomRenderer.resize(data.val, canvasSize.val);
+      modelRenderer.resize(data.val, canvasSize.val);
     }
   });
 

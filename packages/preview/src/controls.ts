@@ -8,6 +8,7 @@ export interface ControlsState {
   speed: State<number>;
   isPlaying: State<boolean>;
   particleTimeScale: State<number>;
+  rotationSpeedMultiplier: State<number>;
 }
 
 export function createControls(
@@ -93,6 +94,23 @@ export function createControls(
             },
           }),
           output(() => `${controls.particleTimeScale.val.toFixed(1)}x`),
+        ),
+        label(
+          { class: "control-item" },
+          span("3D Speed"),
+          input({
+            type: "range",
+            min: 0,
+            max: 5,
+            step: 0.1,
+            value: controls.rotationSpeedMultiplier,
+            oninput: (e: Event) => {
+              controls.rotationSpeedMultiplier.val = parseFloat(
+                (e.target as HTMLInputElement).value,
+              );
+            },
+          }),
+          output(() => `${controls.rotationSpeedMultiplier.val.toFixed(1)}x`),
         ),
       ),
       // Settings controls

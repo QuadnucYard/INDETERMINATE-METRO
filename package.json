@@ -14,10 +14,8 @@
   "workspaces": [
     "packages/*"
   ],
-  "dependencies": {
-    "@types/bun": "latest"
-  },
-  "peerDependencies": {
-    "typescript": "^5"
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@typescript/native-preview": "^7.0.0-dev.20251208.1"
   }
 }

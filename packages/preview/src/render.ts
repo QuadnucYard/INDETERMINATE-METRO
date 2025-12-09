@@ -53,7 +53,7 @@ function useMetroRenderer(
 }
 
 function useBlossomRenderer(data: State<PreviewData | null>, controlsState: ControlsState) {
-  const blossomSystem = new BlossomSystem(960, 540);
+  const blossomSystem = new BlossomSystem();
   blossomSystem.initPool(300);
 
   let lastTime = performance.now();

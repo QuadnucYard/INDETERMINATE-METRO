@@ -2,6 +2,7 @@
 // Particle definition
 // ============================================================================
 
+import { CanvasRenderer } from "../canvas-renderer";
 import type { Rect } from "../types";
 import type { EmitterConfig } from "./config";
 import { BlossomSpriteCollection } from "./sprite";
@@ -53,12 +54,9 @@ const DEPTH_RANGE = { near: -200, far: 400 };
 const MARGIN = 100;
 const MAX_PARTICLES = 2000;
 
-export class BlossomSystem {
+export class BlossomSystem extends CanvasRenderer {
   private pool: Blossom[] = [];
   private active: Blossom[] = [];
-  private canvas: HTMLCanvasElement;
-  private ctx: CanvasRenderingContext2D;
-  private scale: number = 1;
 
   private sprites: BlossomSpriteCollection;
 
@@ -72,34 +70,14 @@ export class BlossomSystem {
   // Default color
   private defaultColor = "#DE0010";
 
-  constructor(width: number, height: number) {
-    this.canvas = document.createElement("canvas");
-    this.canvas.width = width;
-    this.canvas.height = height;
-    const ctx = this.canvas.getContext("2d");
-    if (!ctx) throw new Error("Canvas 2D not supported");
-    this.ctx = ctx;
+  constructor() {
+    super();
 
     this.sprites = new BlossomSpriteCollection();
   }
 
-  public getCanvas(): HTMLCanvasElement {
-    return this.canvas;
-  }
-
-  public resize(rect: Rect, refRect: Rect) {
-    const aspectRatio = refRect.width / refRect.height;
-    const containerRatio = rect.width / rect.height;
-
-    if (containerRatio > aspectRatio) {
-      this.canvas.height = rect.height;
-      this.canvas.width = rect.height * aspectRatio;
-      this.scale = rect.height / refRect.height;
-    } else {
-      this.canvas.width = rect.width;
-      this.canvas.height = rect.width / aspectRatio;
-      this.scale = rect.width / refRect.width;
-    }
+  public override resize(rect: Rect, refRect: Rect) {
+    super.resize(rect, refRect);
 
     // Update bounds to match reference coordinate space
     this.bounds = {
@@ -224,7 +202,7 @@ export class BlossomSystem {
     this.updateWind(dt);
 
     ctx.save();
-    ctx.scale(this.scale, this.scale);
+    ctx.setTransform(this.pixelRatio * this.scale, 0, 0, this.pixelRatio * this.scale, 0, 0);
 
     // Sort by depth (far to near for painter's algorithm)
     this.active.sort((a, b) => a.pos.z - b.pos.z);

@@ -1,4 +1,4 @@
-import type { Rect } from "../types";
+import { CanvasRenderer } from "../canvas-renderer";
 import type { EmitterConfig, Particle, StrokeSegment, Vec2 } from "./types";
 
 const SPEED_SCALE = 5.0;
@@ -6,49 +6,10 @@ const SPEED_SCALE = 5.0;
 /**
  * High-performance particle system with pooling and sprite caching
  */
-export class ParticleSystem {
+export class ParticleSystem extends CanvasRenderer {
   private pool: Particle[] = [];
   private active: Particle[] = [];
   private spriteCache = new Map<string, HTMLCanvasElement>();
-  private canvas: HTMLCanvasElement;
-  private scale: number = 1;
-  private ctx: CanvasRenderingContext2D;
-
-  constructor(width: number, height: number) {
-    this.canvas = document.createElement("canvas");
-    this.canvas.width = width;
-    this.canvas.height = height;
-    const ctx = this.canvas.getContext("2d");
-    if (!ctx) throw new Error("Canvas 2D not supported");
-    this.ctx = ctx;
-  }
-
-  /**
-   * Get the particle canvas for rendering
-   */
-  public getCanvas(): HTMLCanvasElement {
-    return this.canvas;
-  }
-
-  /**
-   * Resize particle canvas
-   */
-  public resize(rect: Rect, refRect: Rect) {
-    const aspectRatio = refRect.width / refRect.height;
-    const containerRatio = rect.width / rect.height;
-
-    if (containerRatio > aspectRatio) {
-      // Container is wider - fit to height
-      this.canvas.height = rect.height;
-      this.canvas.width = rect.height * aspectRatio;
-      this.scale = rect.height / refRect.height;
-    } else {
-      // Container is taller - fit to width
-      this.canvas.width = rect.width;
-      this.canvas.height = rect.width / aspectRatio;
-      this.scale = rect.width / refRect.width;
-    }
-  }
 
   /**
    * Preallocate particle pool
@@ -134,7 +95,7 @@ export class ParticleSystem {
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
     ctx.save();
-    ctx.scale(this.scale, this.scale); // Fit reference size into canvas
+    ctx.setTransform(this.pixelRatio * this.scale, 0, 0, this.pixelRatio * this.scale, 0, 0);
 
     // Update and render active particles
     for (let i = this.active.length - 1; i >= 0; i--) {
@@ -165,7 +126,7 @@ export class ParticleSystem {
       const alpha = Math.max(0, Math.min(1, p.ttl / p.life));
       ctx.globalAlpha = alpha;
       const sprite = this.getSprite(p.color, p.size);
-      const s = sprite.width;
+      const s = sprite.width / this.pixelRatio; // logical size
       ctx.translate(p.pos.x, p.pos.y);
       ctx.rotate(p.rotation);
       ctx.drawImage(sprite, -s / 2, -s / 2, s, s);
@@ -215,16 +176,21 @@ export class ParticleSystem {
    * Get or create cached radial gradient sprite
    */
   private getSprite(color: string, size: number): HTMLCanvasElement {
-    const key = `${color}:${Math.round(size)}`;
+    const dpr = this.pixelRatio || window.devicePixelRatio || 1;
+    const key = `${color}:${Math.round(size)}:${dpr}`;
     const cached = this.spriteCache.get(key);
     if (cached) return cached;
 
     const c = document.createElement("canvas");
-    const s = Math.max(2, Math.round(size * 2));
+    const logicalSize = Math.max(2, Math.round(size * 2));
+    const s = Math.round(logicalSize * dpr);
     c.width = s;
     c.height = s;
     const gx = c.getContext("2d");
     if (!gx) throw new Error("Cannot create sprite context");
+
+    // Scale so drawing operations use logical pixels while backing store is high-DPI
+    gx.scale(dpr, dpr);
 
     const g = gx.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
     g.addColorStop(0, color);
@@ -237,7 +203,7 @@ export class ParticleSystem {
     g.addColorStop(1, "rgba(0,0,0,0)");
 
     gx.fillStyle = g;
-    gx.fillRect(0, 0, s, s);
+    gx.fillRect(0, 0, logicalSize, logicalSize);
     this.spriteCache.set(key, c);
     return c;
   }

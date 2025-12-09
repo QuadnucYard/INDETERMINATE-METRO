@@ -6,7 +6,7 @@ export class ModelRenderer {
   private renderer: THREE.WebGLRenderer;
   private scene: THREE.Scene;
   private camera: THREE.PerspectiveCamera;
-  private model: THREE.Group | null = null;
+  private model?: THREE.Group;
 
   constructor() {
     this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
@@ -32,44 +32,15 @@ export class ModelRenderer {
     // this.scene.add(axesHelper);
 
     // Load model
-    const loader = new GLTFLoader();
-    loader.load(
-      `${import.meta.env.BASE_URL}lollipop.glb`,
-      (gltf) => {
-        this.model = gltf.scene;
+    loadModel(`${import.meta.env.BASE_URL}lollipop.glb`, (model) => {
+      // Apply "italic" shear to the model container or the model itself
+      const shearMatrix = new THREE.Matrix4();
+      shearMatrix.makeShear(0.3, 0, 0, 0, 0, 0);
+      model.applyMatrix4(shearMatrix);
 
-        // Center the model
-        const box = new THREE.Box3().setFromObject(this.model);
-        const center = box.getCenter(new THREE.Vector3());
-        this.model.position.sub(center);
-
-        // Apply "italic" shear to the model container or the model itself
-        const shearMatrix = new THREE.Matrix4();
-        shearMatrix.makeShear(0.3, 0, 0, 0, 0, 0);
-
-        // Apply shear to the model
-        this.model.applyMatrix4(shearMatrix);
-
-        this.scene.add(this.model);
-      },
-      undefined,
-      (error) => {
-        console.warn("An error happened loading the model:", error);
-        // Fallback: Add a cube if model fails to load
-        const geometry = new THREE.BoxGeometry(1, 1, 1);
-        const material = new THREE.MeshStandardMaterial({ color: 0x00ff00, wireframe: true });
-        this.model = new THREE.Group();
-        const cube = new THREE.Mesh(geometry, material);
-        this.model.add(cube);
-
-        // Apply shear
-        const shearMatrix = new THREE.Matrix4();
-        shearMatrix.makeShear(0.3, 0, 0, 0, 0, 0);
-        this.model.applyMatrix4(shearMatrix);
-
-        this.scene.add(this.model);
-      },
-    );
+      this.model = model;
+      this.scene.add(model);
+    });
   }
 
   public getCanvas(): HTMLCanvasElement {
@@ -79,6 +50,8 @@ export class ModelRenderer {
   public resize(rect: Rect) {
     this.camera.aspect = rect.width / rect.height;
     this.camera.updateProjectionMatrix();
+    // Ensure renderer updates pixel ratio in case devicePixelRatio has changed
+    this.renderer.setPixelRatio(window.devicePixelRatio || 1);
     this.renderer.setSize(rect.width, rect.height);
   }
 
@@ -93,4 +66,33 @@ export class ModelRenderer {
 
     this.renderer.render(this.scene, this.camera);
   }
+}
+
+function loadModel(uri: string, onLoad: (model: THREE.Group) => void) {
+  const loader = new GLTFLoader();
+  loader.load(
+    uri,
+    (gltf) => {
+      const model = gltf.scene;
+
+      // Center the model
+      const box = new THREE.Box3().setFromObject(model);
+      const center = box.getCenter(new THREE.Vector3());
+      model.position.sub(center);
+
+      onLoad(model);
+    },
+    undefined,
+    (error) => {
+      console.warn("An error happened loading the model:", error);
+      // Fallback: Add a cube if model fails to load
+      const geometry = new THREE.BoxGeometry(1, 1, 1);
+      const material = new THREE.MeshStandardMaterial({ color: 0x00ff00, wireframe: true });
+      const model = new THREE.Group();
+      const cube = new THREE.Mesh(geometry, material);
+      model.add(cube);
+
+      onLoad(model);
+    },
+  );
 }

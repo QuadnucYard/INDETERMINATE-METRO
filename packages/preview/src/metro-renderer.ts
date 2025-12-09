@@ -1,10 +1,10 @@
+import { CanvasRenderer } from "./canvas-renderer";
 import { Rgb, Rgba } from "./color";
 import {
   type ActiveLineStations,
   type LineData,
   type LineId,
   type PreviewData,
-  type Rect,
   type RenderStyle,
   ServiceState,
   type StationId,
@@ -21,42 +21,7 @@ const LINE_MARGIN = 5;
 const STATION_RADIUS = 6;
 const STATION_STROKE_WIDTH = 2.5;
 
-export class MetroRenderer {
-  private ctx: CanvasRenderingContext2D;
-  private canvas: HTMLCanvasElement;
-  private scale: number = 1;
-
-  constructor() {
-    this.canvas = document.createElement("canvas");
-    const ctx = this.canvas.getContext("2d");
-    if (!ctx) throw new Error("Canvas 2D context not available");
-    this.ctx = ctx;
-  }
-
-  public getCanvas(): HTMLCanvasElement {
-    return this.canvas;
-  }
-
-  /**
-   * Resize canvas to given dimensions while maintaining aspect ratio
-   */
-  public resize(rect: Rect, refRect: Rect) {
-    const aspectRatio = refRect.width / refRect.height;
-    const containerRatio = rect.width / rect.height;
-
-    if (containerRatio > aspectRatio) {
-      // Container is wider - fit to height
-      this.canvas.width = rect.height * aspectRatio;
-      this.canvas.height = rect.height;
-      this.scale = rect.height / refRect.height;
-    } else {
-      // Container is taller - fit to width
-      this.canvas.width = rect.width;
-      this.canvas.height = rect.width / aspectRatio;
-      this.scale = rect.width / refRect.width;
-    }
-  }
-
+export class MetroRenderer extends CanvasRenderer {
   /**
    * Render the metro visualization
    * Render order: all line stems first, then all stations, then all labels
@@ -124,7 +89,9 @@ export class MetroRenderer {
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
     ctx.save();
-    ctx.scale(this.scale, this.scale); // Fit reference size into canvas
+    // Apply device pixel ratio in the transform so drawing is rendered crisply
+    // Transform maps logical reference space -> device pixels
+    ctx.setTransform(this.pixelRatio * this.scale, 0, 0, this.pixelRatio * this.scale, 0, 0);
 
     // Pass 1: Draw all line stems
     for (const rd of lineRenderData) {

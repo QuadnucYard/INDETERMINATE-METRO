@@ -3,6 +3,7 @@ import type { Vec3 } from "./utils";
 
 const SPRITE_VARIANTS = 4;
 const TEXTURE_SIZE = 64;
+const DPR = window.devicePixelRatio || 1;
 
 export class Sprite {
   constructor(private canvas: HTMLCanvasElement) {}
@@ -60,10 +61,12 @@ export class BlossomSpriteCollection {
       // Create sprite variants with slight rotation differences
       for (let i = 0; i < SPRITE_VARIANTS; i++) {
         const canvas = document.createElement("canvas");
-        canvas.width = TEXTURE_SIZE;
-        canvas.height = TEXTURE_SIZE;
+        canvas.width = Math.round(TEXTURE_SIZE * DPR);
+        canvas.height = Math.round(TEXTURE_SIZE * DPR);
         const ctx = canvas.getContext("2d");
         if (!ctx) continue;
+        // Scale to allow drawing in logical pixels while keeping high DPI backing
+        ctx.scale(DPR, DPR);
 
         ctx.translate(TEXTURE_SIZE / 2, TEXTURE_SIZE / 2);
         ctx.rotate((i * Math.PI) / (SPRITE_VARIANTS * 2));
@@ -98,13 +101,14 @@ export class BlossomSpriteCollection {
 
     for (const baseSprite of this.baseSprites) {
       const canvas = document.createElement("canvas");
-      canvas.width = TEXTURE_SIZE;
-      canvas.height = TEXTURE_SIZE;
+      canvas.width = Math.round(TEXTURE_SIZE * DPR);
+      canvas.height = Math.round(TEXTURE_SIZE * DPR);
       const ctx = canvas.getContext("2d");
       if (!ctx) continue;
+      ctx.scale(DPR, DPR);
 
-      // Draw base sprite
-      ctx.drawImage(baseSprite, 0, 0);
+      // Draw base sprite at logical size
+      ctx.drawImage(baseSprite, 0, 0, TEXTURE_SIZE, TEXTURE_SIZE);
 
       // Apply color tint using multiply blend
       ctx.globalCompositeOperation = "multiply";

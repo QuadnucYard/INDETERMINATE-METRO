@@ -117,7 +117,7 @@ export class BlossomSpriteCollection {
 
       // Restore alpha from original
       ctx.globalCompositeOperation = "destination-in";
-      ctx.drawImage(baseSprite, 0, 0);
+      ctx.drawImage(baseSprite, 0, 0, TEXTURE_SIZE, TEXTURE_SIZE);
 
       tinted.push(new Sprite(canvas));
     }

@@ -2,7 +2,7 @@ import van, { type State } from "vanjs-core";
 import { useAnimation } from "./animation";
 import { type ControlsState, createControls } from "./controls";
 import { useData } from "./data-loader";
-import { useRenderer } from "./renderer";
+import { useRenderer } from "./render";
 import type { RenderStyle } from "./types";
 import "./styles.css";
 

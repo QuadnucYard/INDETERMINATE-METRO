@@ -6,6 +6,7 @@ import {
   type LineId,
   type PreviewData,
   type PreviewMeta,
+  type RouteData,
   ServiceState,
   type StationId,
   type Vec2,
@@ -31,7 +32,7 @@ const CONFIG = {
 
 interface TrackedLineState {
   service?: ServiceState;
-  routes: StationId[][];
+  routes: RouteData[];
   routesCode?: string;
   stations: Map<StationId, TrackedStationState>;
 }

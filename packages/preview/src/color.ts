@@ -41,6 +41,10 @@ export class Rgba {
     public a: number,
   ) {}
 
+  public withAlpha(a: number): Rgba {
+    return new Rgba(this.r, this.g, this.b, a);
+  }
+
   public toCss(): string {
     return `rgba(${this.r}, ${this.g}, ${this.b}, ${this.a})`;
   }

@@ -4,6 +4,7 @@ import {
   type KeyedState,
   type LineData,
   type PreviewData,
+  type RouteData,
   ServiceState,
   type StationData,
   type StationId,
@@ -50,9 +51,9 @@ export function getStationStateAtDay(station: StationData, day: number): Service
  * Get route segments at a given day from sparse route points
  */
 export function getRouteSegmentsAtDay(
-  routePoints: KeyedArray<{ value: StationId[][] }>,
+  routePoints: KeyedArray<{ value: RouteData[] }>,
   day: number,
-): StationId[][] {
+): RouteData[] {
   const found = routePoints.findLast((p) => p.day <= day);
   return found?.value ?? [];
 }

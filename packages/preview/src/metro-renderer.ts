@@ -17,38 +17,37 @@ import {
   getStateAtDay,
 } from "./utils";
 
-const LINE_MARGIN = 5;
+// const LINE_MARGIN = 5;
 const STATION_RADIUS = 6;
 const STATION_STROKE_WIDTH = 2.5;
 
+type RouteSegmentInfo = { positions: Vec2[]; state: ServiceState };
+
+/**
+ * Render the metro visualization
+ */
 export class MetroRenderer extends CanvasRenderer {
-  /**
-   * Render the metro visualization
-   * Render order: all line stems first, then all stations, then all labels
-   */
   public render(
     data: PreviewData,
     day: number,
     styles: RenderStyle,
     stationPositions?: Map<LineId, Map<StationId, Vec2>>,
   ) {
-    // Collect render data for all lines
     type LineRenderData = {
       line: LineData;
       positions?: Map<StationId, Vec2>;
       activeStations: ActiveLineStations;
-      routeSegments: Vec2[][];
+      routeSegments: RouteSegmentInfo[];
       widthPx: number;
       opacity: number;
       color: Rgb;
     };
 
     const lineRenderData: LineRenderData[] = [];
-
     const { lines } = data;
     const dayIndex = Math.floor(day);
 
-    // Prepare render data for main lines
+    // Prepare render data
     for (const [lineId, line] of Object.entries(lines)) {
       const lineState = getStateAtDay(line.statePoints, dayIndex);
       if (lineState === ServiceState.Never || lineState === ServiceState.Closed) continue;
@@ -57,16 +56,14 @@ export class MetroRenderer extends CanvasRenderer {
       const activeStations = getActiveStations(line, dayIndex, positions);
       if (activeStations.activeStations.length === 0) continue;
 
-      // Get route segments for this line (or fallback to simple stem)
+      // Get route segments for this line
       const rawRouteSegments = getRouteSegmentsAtDay(line.routePoints, dayIndex);
-      const routeSegments = rawRouteSegments.map((segment) =>
-        segment
-          .map((sid) => {
-            const st = activeStations.activeStations.find((s) => s.station.id === sid);
-            return st?.pos;
-          })
-          .filter((pos) => pos !== undefined),
-      );
+      const routeSegments = rawRouteSegments.map((segment) => {
+        const pts = segment.stations
+          .map((sid) => positions?.get(sid))
+          .filter((p) => p !== undefined) as Vec2[];
+        return { positions: pts, state: segment.state } as RouteSegmentInfo;
+      });
 
       const ridership = getRidershipAtDay(line, dayIndex);
       const widthPx = calculateWidth(ridership / 100) * styles.widthScale;
@@ -95,12 +92,7 @@ export class MetroRenderer extends CanvasRenderer {
 
     // Pass 1: Draw all line stems
     for (const rd of lineRenderData) {
-      this.renderLineStem(
-        rd.activeStations,
-        rd.routeSegments,
-        rd.widthPx,
-        rd.color.withAlpha(rd.opacity),
-      );
+      this.renderLineStem(rd.activeStations, rd.routeSegments, rd.widthPx, rd.color);
     }
 
     // Pass 2: Draw all stations
@@ -124,53 +116,35 @@ export class MetroRenderer extends CanvasRenderer {
    */
   private renderLineStem(
     stationData: ActiveLineStations,
-    routeSegments: Vec2[][],
+    routeSegments: RouteSegmentInfo[],
     widthPx: number,
-    color: Rgba,
+    color: Rgb,
   ) {
-    const { activeStations, firstPos, lastPos } = stationData;
-
+    const { activeStations } = stationData;
     if (activeStations.length === 0) return;
 
     const ctx = this.ctx;
-
-    ctx.strokeStyle = color.toCss();
     ctx.lineWidth = widthPx;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
     ctx.shadowBlur = widthPx;
-    ctx.shadowColor = ctx.strokeStyle;
+    ctx.shadowColor = color.toCss();
 
-    // If we have route segments, draw each as a polyline
-    if (routeSegments.length > 0) {
-      for (const segment of routeSegments) {
-        if (segment.length < 2) continue;
+    for (const seg of routeSegments) {
+      const pts = seg.positions;
+      if (!pts || pts.length < 2) continue;
 
-        ctx.beginPath();
-        const first = segment[0];
-        if (first) {
-          ctx.moveTo(first.x, first.y - LINE_MARGIN);
-
-          for (let i = 1; i < segment.length; i++) {
-            const pt = segment[i];
-            if (pt) {
-              ctx.lineTo(pt.x, pt.y);
-            }
-          }
-
-          // Extend beyond last point
-          const last = segment[segment.length - 1];
-          if (last) {
-            ctx.lineTo(last.x, last.y + LINE_MARGIN);
-          }
-        }
-        ctx.stroke();
-      }
-    } else {
-      // Fallback: simple vertical stem (for lines without routes defined)
+      const alpha = seg.state === ServiceState.Suspended ? 0.4 : 1.0;
+      ctx.strokeStyle = color.withAlpha(alpha).toCss();
       ctx.beginPath();
-      ctx.moveTo(firstPos.x, firstPos.y - LINE_MARGIN);
-      ctx.lineTo(lastPos.x, lastPos.y + LINE_MARGIN);
+
+      const first = pts[0] as Vec2;
+      ctx.moveTo(first.x, first.y);
+
+      for (const pt of pts.slice(1)) {
+        ctx.lineTo(pt.x, pt.y);
+      }
+
       ctx.stroke();
     }
   }

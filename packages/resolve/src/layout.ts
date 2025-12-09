@@ -1,5 +1,5 @@
 import assert from "node:assert";
-import { ServiceState, type StationId, type Vec2 } from "im-shared/types";
+import { type RouteData, ServiceState, type StationId, type Vec2 } from "im-shared/types";
 import * as _ from "radash";
 import type { StationSnapshot } from "./model";
 
@@ -15,7 +15,7 @@ import type { StationSnapshot } from "./model";
  * @param branchOffset - Horizontal offset between branches
  */
 export function calculateStationPositions(
-  routes: StationId[][],
+  routes: RouteData[],
   stations: Map<StationId, StationSnapshot>,
   x: number,
   topY: number,
@@ -43,7 +43,7 @@ export function calculateStationPositions(
   const levelHeight = totalLevels <= 1 ? 0 : (bottomY - topY) / (totalLevels - 1);
 
   let pendingRoutes = routes.map((r) =>
-    r.filter((sid) => {
+    r.stations.filter((sid) => {
       const state = stations.get(sid)?.state;
       return state === ServiceState.Open || state === ServiceState.Suspended;
     }),
@@ -58,7 +58,7 @@ export function calculateStationPositions(
     // Get all routes that conflict with this one (share levels)
     // Then remove them from pendingRoutes
     const [conflictedRoutes, remainingRoutes] = _.fork(pendingRoutes, (r) => {
-      return r.slice(1).some((sid) => {
+      return r.slice(1, -1).some((sid) => {
         const level = stations.get(sid)?.level;
         return level !== undefined && levelSet.has(level);
       });

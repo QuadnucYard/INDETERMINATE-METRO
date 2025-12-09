@@ -1,5 +1,5 @@
 import assert from "node:assert";
-import { type LineId, ServiceState, type StationId } from "im-shared/types";
+import { type LineId, type RouteData, ServiceState, type StationId } from "im-shared/types";
 import type { Route } from "./model/route";
 import { computeLevels, extractRouteStations, resolveRoutes } from "./model/route";
 import type { EventRecord, LineMeta, StationsSpec } from "./types";
@@ -31,7 +31,7 @@ interface StationNode {
 export interface LineSnapshot {
   lineState: ServiceState;
   stations: Map<LineId, StationSnapshot>;
-  routes: StationId[][];
+  routes: RouteData[];
 }
 
 export interface StationSnapshot {
@@ -231,11 +231,11 @@ export class MetroModel {
     return { lineState: line.state, stations: sMap, routes };
   }
 
-  private snapshotRoutes(line: LineState): StationId[][] {
+  private snapshotRoutes(line: LineState): RouteData[] {
     const isEdgeActive = (edgeState?: ServiceState) =>
       edgeState === ServiceState.Open || edgeState === ServiceState.Suspended;
 
-    const routes: StationId[][] = [];
+    const routes: RouteData[] = [];
     for (const route of line.routes) {
       // Find the continuous active edges in the route
       let endIdx = route.stations.length - 1;
@@ -249,6 +249,7 @@ export class MetroModel {
           continue;
         }
         const segment = [sid];
+        const routeState = st.node.edgeState;
 
         // Now endIdx points to an active station
         let startIdx = endIdx - 1;
@@ -258,7 +259,7 @@ export class MetroModel {
           const prevSt = line.stations.get(prevSid);
           assert(prevSt);
           segment.push(prevSid);
-          if (!isEdgeActive(prevSt.node.edgeState)) {
+          if (prevSt.node.edgeState !== routeState) {
             break;
           }
           startIdx--;
@@ -266,8 +267,9 @@ export class MetroModel {
         const prevSid = route.stations[startIdx];
         assert(prevSid);
         segment.push(prevSid);
-        routes.push(segment.reverse());
-        endIdx = startIdx - 1;
+        routes.push({ stations: segment.reverse(), state: routeState });
+        const prevSt = line.stations.get(prevSid);
+        endIdx = isEdgeActive(prevSt?.node.edgeState) ? startIdx : startIdx - 1;
       }
     }
     return routes;

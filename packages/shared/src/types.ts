@@ -44,8 +44,15 @@ export type LineData = {
   /** raw ridership counts in 万人 (10k passengers) per day. Should be looked up with offset */
   ridership: number[];
   statePoints: KeyedState[]; // sparse state transitions; sample discrete state
-  routePoints: KeyedArray<{ value: StationId[][] }>; // sparse route segments (each route is represented by array of station IDs)
+  // sparse route segments: value is array of route objects
+  routePoints: KeyedArray<{ value: RouteData[] }>;
   stations: StationData[];
+};
+
+export type RouteData = {
+  stations: StationId[];
+  /** The service state for edges in this route */
+  state: ServiceState;
 };
 
 export type PreviewMeta = {

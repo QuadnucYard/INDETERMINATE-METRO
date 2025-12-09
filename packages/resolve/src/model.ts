@@ -1,5 +1,6 @@
 import assert from "node:assert";
 import { type LineId, type RouteData, ServiceState, type StationId } from "im-shared/types";
+import * as _ from "radash";
 import type { Route } from "./model/route";
 import { computeLevels, extractRouteStations, resolveRoutes } from "./model/route";
 import type { EventRecord, LineMeta, StationsSpec } from "./types";
@@ -272,7 +273,28 @@ export class MetroModel {
         endIdx = isEdgeActive(prevSt?.node.edgeState) ? startIdx : startIdx - 1;
       }
     }
-    return routes;
+
+    // simplify routes by merging consecutive ones with the same state
+    // to ensure routes break at junctions, we should check occurrence of stations
+    const simplified: RouteData[] = [];
+    const occurrence = _.counting(_.flat(routes.map((r) => r.stations)), (sid) => sid);
+    for (const r of routes) {
+      const last = simplified.at(-1);
+      if (
+        last?.state === r.state &&
+        last.stations.at(-1) === r.stations[0] &&
+        r.stations[0] &&
+        occurrence[r.stations[0]] === 2 // should not be a junction
+      ) {
+        // Merge
+        last.stations.pop(); // remove duplicate junction
+        last.stations.push(...r.stations);
+      } else {
+        simplified.push(r);
+      }
+    }
+
+    return simplified;
   }
 
   /**

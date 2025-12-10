@@ -1,13 +1,13 @@
 import fs from "node:fs/promises";
 import type { LineId, StationId } from "im-shared/types";
 
-export const loadJson = async <T>(p: string): Promise<T | null> => {
+export const loadJson = async <T>(p: string): Promise<T> => {
   try {
     const txt = await fs.readFile(p, "utf8");
     return JSON.parse(txt) as T;
   } catch (err) {
     console.error(`Failed to load JSON from ${p}:`, err);
-    return null;
+    throw err;
   }
 };
 

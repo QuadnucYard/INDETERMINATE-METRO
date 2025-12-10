@@ -68,7 +68,7 @@ export class PositionAnimator {
       const station = line.stations[i];
       if (!station) continue;
 
-      // Get position from IR (includes x computed during IR generation)
+      // Get position from data (includes x computed during data generation)
       const pos = getStationPositionAtDay(station, day);
       if (pos !== undefined) {
         stationTargets.push({ station, target: pos, index: i });

@@ -59,7 +59,7 @@ export class ParticleAnimator {
   }
 
   /**
-   * Extract event triggers from IR data
+   * Extract event triggers from data
    */
   private extractEventTriggers(data: PreviewData): EventTrigger[] {
     const triggers: EventTrigger[] = [];

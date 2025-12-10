@@ -1,0 +1,99 @@
+import fs from "node:fs/promises";
+import path from "node:path";
+import type { PreviewData, PreviewMeta } from "im-shared/types";
+import { loadJson, loadRidershipData } from "./parse";
+import { simulate } from "./simulation";
+import type { EventRecord, LineMeta } from "./types";
+
+const DATA_DIR = path.join(process.cwd(), "../../data");
+const INPUT_META_PATH = path.join(DATA_DIR, "lines-meta.json");
+const INPUT_EVENTS_PATH = path.join(DATA_DIR, "events.json");
+const INPUT_CSV_PATH = path.join(DATA_DIR, "ridership.csv");
+const OUT_PATH = path.join(DATA_DIR, "../packages/preview/public/preview-data.json");
+
+const CONFIG = {
+  width: 1920,
+  height: 1080,
+  topPadding: 50,
+  bottomPadding: 50,
+  branchOffset: 30, // x offset between main and branch stems
+};
+
+/**
+ * Generate an array of ISO date strings from startDate to endDate (exclusive)
+ */
+function generateDateRange(startDate: string, endDate: string): string[] {
+  const dates: string[] = [];
+  const current = new Date(startDate);
+  const end = new Date(endDate);
+
+  while (current < end) {
+    dates.push(current.toISOString().slice(0, 10));
+    current.setDate(current.getDate() + 1);
+  }
+
+  return dates;
+}
+
+function extendDummyDays(sortedDays: string[], eventsRaw: EventRecord[]) {
+  // Find the first event date
+  const sortedEvents = eventsRaw.toSorted((a, b) =>
+    a.date < b.date ? -1 : a.date > b.date ? 1 : 0,
+  );
+  const firstEventDate = sortedEvents[0]?.date;
+
+  // Build full days array, prepending dummy days if needed
+  const allDays = [...sortedDays];
+
+  const firstRidershipDate = sortedDays[0];
+  if (firstEventDate && firstRidershipDate && firstEventDate < firstRidershipDate) {
+    // Generate dummy days from first event to first ridership date
+    const dummyDays = generateDateRange(firstEventDate, firstRidershipDate);
+    console.log(
+      `Adding ${dummyDays.length} dummy days from ${firstEventDate} to ${firstRidershipDate}`,
+    );
+
+    allDays.splice(0, 0, ...dummyDays);
+  }
+
+  return allDays;
+}
+
+async function main() {
+  const linesMeta = await loadJson<LineMeta[]>(INPUT_META_PATH);
+  const eventsRaw = await loadJson<EventRecord[]>(INPUT_EVENTS_PATH);
+
+  // Load computed CSV ridership (expected to be present in /output/ridership.csv)
+  const { ridershipMap, sortedDays } = await loadRidershipData(INPUT_CSV_PATH);
+
+  const allDays = extendDummyDays(sortedDays, eventsRaw);
+
+  // Run simulation to generate PreviewData
+  const { linesData, totalRiderships } = simulate(
+    ridershipMap,
+    allDays,
+    eventsRaw,
+    linesMeta,
+    CONFIG,
+  );
+
+  // Finalize Data
+  const meta: PreviewMeta = {
+    width: CONFIG.width,
+    height: CONFIG.height,
+  };
+
+  const previewData: PreviewData = {
+    meta,
+    days: allDays,
+    totalRiderships,
+    lines: linesData,
+  };
+
+  // Write output
+  await fs.mkdir(path.dirname(OUT_PATH), { recursive: true });
+  await fs.writeFile(OUT_PATH, JSON.stringify(previewData), "utf8");
+  console.log(`Wrote PreviewIR to ${OUT_PATH}`);
+}
+
+main().catch(console.error);

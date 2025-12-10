@@ -44,7 +44,7 @@ jobs:
 
       - name: Build frontend
         run: |
-          bun run generate-preview-ir
+          bun run generate-preview-data
           bun run build:frontend
 
       - name: Upload artifact

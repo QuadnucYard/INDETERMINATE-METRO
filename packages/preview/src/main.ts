@@ -11,7 +11,7 @@ const { div } = van.tags;
 function ErrorDisplay() {
   return div(
     { style: "color: #ff4444; padding: 20px; font-family: system-ui;" },
-    "Failed to load data. Please run the IR generation first.",
+    "Failed to load data. Please run the data generation first.",
   );
 }
 

@@ -6,7 +6,7 @@
     "lint": "biome lint --write packages",
     "check": "biome check --write packages",
     "process-ridership": "cd ./packages/ridership && bun run process-ridership",
-    "generate-preview-ir": "cd ./packages/resolve && bun run generate-ir",
+    "generate-preview-data": "cd ./packages/resolve && bun run generate-data",
     "dev:frontend": "cd ./packages/preview && bun dev",
     "build:frontend": "cd ./packages/preview && bun run build",
     "preview:frontend": "cd ./packages/preview && bun preview"

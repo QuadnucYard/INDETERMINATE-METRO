@@ -53,7 +53,11 @@ function useMetroRenderer(
   return { resize, canvas: renderer.getCanvas() };
 }
 
-function useBlossomRenderer(data: State<PreviewData | null>, controlsState: ControlsState) {
+function useBlossomRenderer(
+  data: State<PreviewData | null>,
+  controlsState: ControlsState,
+  stationPositions: StationPositionRefs,
+) {
   const blossomSystem = new BlossomSystem();
   blossomSystem.initPool(300);
 
@@ -90,7 +94,7 @@ function useBlossomRenderer(data: State<PreviewData | null>, controlsState: Cont
     blossomSystem.resize(rect, data.meta);
   };
 
-  const schedule = new BlossomSchedule(blossomSystem);
+  const schedule = new BlossomSchedule(blossomSystem, stationPositions);
 
   // Sync schedule to current day
   van.derive(() => {
@@ -141,7 +145,7 @@ export function useRenderer(
   const stationPositions: StationPositionRefs = new Map();
 
   const metroRenderer = useMetroRenderer(data, controlsState, styles, stationPositions);
-  const blossomRenderer = useBlossomRenderer(data, controlsState);
+  const blossomRenderer = useBlossomRenderer(data, controlsState, stationPositions);
   const modelRenderer = useModelRenderer(data, controlsState);
 
   const canvasContainer = div(

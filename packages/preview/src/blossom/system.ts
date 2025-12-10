@@ -4,23 +4,11 @@
 
 import { CanvasRenderer } from "../canvas-renderer";
 import type { Rect } from "../types";
-import type { EmitterConfig } from "./config";
+import type { EmissionConfig } from "./config";
+import type { Emitter } from "./emitter";
+import type { Blossom } from "./particle";
 import { BlossomSpriteCollection } from "./sprite";
 import { type Vec3, vec3, vec3Mag, zeroVec3 } from "./utils";
-
-interface Blossom {
-  alive: boolean;
-  pos: Vec3;
-  vel: Vec3;
-  rot: Vec3; // Euler angles
-  spin: Vec3; // Angular velocity
-  size: number;
-  life: number;
-  ttl: number;
-  mass: number;
-  color: string;
-  spriteId: number;
-}
 
 // ============================================================================
 // Wind configuration
@@ -57,6 +45,8 @@ const MAX_PARTICLES = 2000;
 export class BlossomSystem extends CanvasRenderer {
   private pool: Blossom[] = [];
   private active: Blossom[] = [];
+
+  private emitters: Emitter[] = [];
 
   private sprites: BlossomSpriteCollection;
 
@@ -124,90 +114,109 @@ export class BlossomSystem extends CanvasRenderer {
     return vec3(x / mag, y / mag, z / mag);
   }
 
+  public addEmitter(emitter: Emitter) {
+    this.emitters.push(emitter);
+    emitter.start();
+  }
+
+  public getEmitters(): Emitter[] {
+    return this.emitters;
+  }
+
   /**
-   * Emit a burst of blossoms for a specific event type
+   * Emit a single particle (used for continuous emission)
    */
-  public emitBurst(
-    cfg: EmitterConfig,
-    options: {
-      x: number;
-      y: number;
-      z?: number;
-      color?: string;
-      intensity?: number;
-    },
-  ) {
-    const intensity = options.intensity ?? 1.0;
-    const color = options.color ?? this.defaultColor;
-    const zBase = options.z ?? 0;
+  public spawnParticle(cfg: EmissionConfig, pos: Vec3, color: string) {
+    const p = this.getParticle();
+    if (!p) return;
 
-    // LOD: reduce count if too many active particles
-    const lodFactor = this.active.length > 1000 ? 1000 / this.active.length : 1;
-    const count = Math.round(cfg.baseCount * intensity * lodFactor);
+    // Position
+    p.pos.x = pos.x;
+    p.pos.y = pos.y;
+    p.pos.z = pos.z;
 
-    for (let i = 0; i < count; i++) {
-      const p = this.getParticle();
-      if (!p) break;
+    // Velocity in spherical cone
+    const dir = this.randomUnitVectorInCone(cfg.spreadDeg, 0.6);
+    const speed = cfg.speed + (Math.random() * 2 - 1) * cfg.speedVar;
+    p.vel.x = dir.x * speed;
+    p.vel.y = dir.y * speed;
+    p.vel.z = dir.z * speed;
 
-      // Spawn position with spread
-      p.pos.x = options.x + (Math.random() * 2 - 1) * cfg.spawnRadius;
-      p.pos.y = options.y + (Math.random() * 2 - 1) * cfg.spawnRadius;
-      p.pos.z = zBase + cfg.zBias + (Math.random() * 2 - 1) * cfg.zVar;
+    // Life
+    p.life = cfg.life + (Math.random() * 2 - 1) * cfg.lifeVar;
+    p.ttl = p.life;
 
-      // Velocity in spherical cone
-      const dir = this.randomUnitVectorInCone(cfg.spreadDeg, 0.6);
-      const speed = cfg.speed + (Math.random() * 2 - 1) * cfg.speedVar;
-      p.vel.x = dir.x * speed;
-      p.vel.y = dir.y * speed;
-      p.vel.z = dir.z * speed;
+    // Size
+    p.size = cfg.size + (Math.random() * 2 - 1) * cfg.sizeVar;
 
-      // Life
-      p.life = cfg.life + (Math.random() * 2 - 1) * cfg.lifeVar;
-      p.ttl = p.life;
+    // Mass
+    p.mass = 0.5 + Math.random() * 0.5;
 
-      // Size
-      p.size = cfg.size + (Math.random() * 2 - 1) * cfg.sizeVar;
+    // Initial rotation
+    p.rot.x = Math.random() * Math.PI * 2;
+    p.rot.y = Math.random() * Math.PI * 2;
+    p.rot.z = Math.random() * Math.PI * 2;
 
-      // Mass
-      p.mass = 0.5 + Math.random() * 0.5;
+    // Angular velocity
+    p.spin.x = (Math.random() * 2 - 1) * cfg.angularVar;
+    p.spin.y = (Math.random() * 2 - 1) * cfg.angularVar;
+    p.spin.z = (Math.random() * 2 - 1) * cfg.angularVar * 1.5;
 
-      // Initial rotation
-      p.rot.x = Math.random() * Math.PI * 2;
-      p.rot.y = Math.random() * Math.PI * 2;
-      p.rot.z = Math.random() * Math.PI * 2;
-
-      // Angular velocity
-      p.spin.x = (Math.random() * 2 - 1) * cfg.angularVar;
-      p.spin.y = (Math.random() * 2 - 1) * cfg.angularVar;
-      p.spin.z = (Math.random() * 2 - 1) * cfg.angularVar * 1.5;
-
-      p.color = color;
-      p.spriteId = Math.floor(Math.random() * this.sprites.numVariants);
-    }
+    p.color = color;
+    p.spriteId = Math.floor(Math.random() * this.sprites.numVariants);
   }
 
   /**
    * Main update loop: physics + render
    */
   public update(dt: number, time: number) {
-    const ctx = this.ctx;
-    ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-
     if (!this.sprites.isLoaded) return;
 
     // Cap dt to prevent explosion on tab switch
     dt = Math.min(dt, 0.1);
 
-    // Update wind
+    // Update
+    this.updateEmitters(dt);
     this.updateWind(dt);
+    this.updateParticles(dt, time);
 
-    ctx.save();
-    ctx.setTransform(this.pixelRatio * this.scale, 0, 0, this.pixelRatio * this.scale, 0, 0);
+    // Render
+    this.renderParticles();
+  }
 
-    // Sort by depth (far to near for painter's algorithm)
-    this.active.sort((a, b) => a.pos.z - b.pos.z);
+  private updateEmitters(dt: number) {
+    let i = 0;
+    while (i < this.emitters.length) {
+      const emitter = this.emitters[i];
+      if (!emitter) {
+        i++;
+        continue;
+      }
+      emitter.update(dt);
+      if (emitter.isFinished()) {
+        this.emitters.splice(i, 1);
+        continue;
+      }
+      i++;
+    }
+  }
 
-    // Update and render each particle
+  private updateWind(dt: number) {
+    // Generate new gust periodically
+    if (Math.random() < this.wind.gustFrequency * dt) {
+      this.currentGust.x = (Math.random() - 0.3) * this.wind.gustStrength;
+      this.currentGust.y = (Math.random() - 0.5) * this.wind.gustStrength * 0.3;
+      this.currentGust.z = (Math.random() - 0.5) * this.wind.gustStrength * 0.5;
+    }
+
+    // Decay gust
+    const decay = 0.98;
+    this.currentGust.x *= decay;
+    this.currentGust.y *= decay;
+    this.currentGust.z *= decay;
+  }
+
+  private updateParticles(dt: number, time: number) {
     for (let i = this.active.length - 1; i >= 0; i--) {
       const p = this.active[i];
       if (!p) continue;
@@ -224,29 +233,8 @@ export class BlossomSystem extends CanvasRenderer {
       // Bounds check
       if (p.pos.y > this.bounds.maxY + 100 || p.pos.x < this.bounds.minX - 100) {
         this.recycleParticle(p, i);
-        continue;
       }
-
-      // Render
-      this.renderBlossom(p, ctx);
     }
-
-    ctx.restore();
-  }
-
-  private updateWind(dt: number) {
-    // Generate new gust periodically
-    if (Math.random() < this.wind.gustFrequency * dt) {
-      this.currentGust.x = (Math.random() - 0.3) * this.wind.gustStrength;
-      this.currentGust.y = (Math.random() - 0.5) * this.wind.gustStrength * 0.3;
-      this.currentGust.z = (Math.random() - 0.5) * this.wind.gustStrength * 0.5;
-    }
-
-    // Decay gust
-    const decay = 0.98;
-    this.currentGust.x *= decay;
-    this.currentGust.y *= decay;
-    this.currentGust.z *= decay;
   }
 
   private applyPhysics(p: Blossom, dt: number, time: number) {
@@ -307,7 +295,25 @@ export class BlossomSystem extends CanvasRenderer {
     p.spin.x += windY * 0.01 * dt;
   }
 
-  private renderBlossom(p: Blossom, ctx: CanvasRenderingContext2D) {
+  private renderParticles() {
+    const ctx = this.ctx;
+    ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+    ctx.save();
+    ctx.setTransform(this.pixelRatio * this.scale, 0, 0, this.pixelRatio * this.scale, 0, 0);
+
+    // Sort by depth (far to near for painter's algorithm)
+    this.active.sort((a, b) => a.pos.z - b.pos.z);
+
+    // Render each particle
+    for (const p of this.active) {
+      this.renderParticle(p, ctx);
+    }
+
+    ctx.restore();
+  }
+
+  private renderParticle(p: Blossom, ctx: CanvasRenderingContext2D) {
     // Get tinted sprites
     const sprites = this.sprites.getTintedSprites(p.color);
     if (!sprites || sprites.length === 0) return;

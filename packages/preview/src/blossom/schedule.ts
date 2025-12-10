@@ -1,140 +1,151 @@
-import { getStationPositionAtDay } from "../keyframe";
-import { type LineData, type PreviewData, ServiceState, type StationData } from "../types";
-import type { EmitterConfig } from "./config";
+import { pairs } from "../itertools";
+import { getRouteSegmentsAtDay, getStateAtDay, getStationStateAtDay } from "../keyframe";
+import {
+  type LineData,
+  type LineId,
+  type PreviewData,
+  ServiceState,
+  type StationData,
+  type StationId,
+  type StationPositionRefs,
+} from "../types";
+import type { LineEmitterConfig, PointEmitterConfig } from "./config";
+import { LineEmitter, PointEmitter } from "./emitter";
 import { EMITTER_CONFIGS as EMISSIONS } from "./presets";
 import type { BlossomSystem } from "./system";
 
 export class BlossomSchedule {
   private lastEventDay: number = -1;
-  // Track station states for detecting changes
-  private lastStationStates = new Map<string, ServiceState>();
+  // Track states for detecting changes
+  private lastLineStates = new Map<LineId, ServiceState>();
+  private lastStationStates = new Map<StationId, ServiceState>();
+  private lastEdgeStates = new Map<LineId, Map<string, ServiceState>>();
 
-  constructor(private blossomSystem: BlossomSystem) {}
+  constructor(
+    private blossomSystem: BlossomSystem,
+    private stationPositions: StationPositionRefs,
+  ) {}
 
   public update(data: PreviewData, day: number) {
     if (day === this.lastEventDay) return;
 
-    const lastEventDay = this.lastEventDay;
     this.lastEventDay = day;
-
-    // Determine day range to check based on direction
-    const isForward = day > lastEventDay;
-
-    const minDay = isForward ? lastEventDay : day;
-    const maxDay = isForward ? day : lastEventDay;
 
     // Check for line state changes
     for (const line of Object.values(data.lines)) {
-      // Line-level events
-      for (const pt of line.statePoints) {
-        if (pt.day <= minDay || pt.day > maxDay) continue;
+      // Route-segment-level events
+      if (!this.lastEdgeStates.has(line.id)) {
+        this.lastEdgeStates.set(line.id, new Map());
+      }
+      const lastEdgeStates = this.lastEdgeStates.get(line.id);
+      if (!lastEdgeStates) continue;
 
-        const prevState = line.statePoints.find((p) => p.day < pt.day)?.state ?? ServiceState.Never;
+      const seenEdges = new Set<string>();
+      for (const route of getRouteSegmentsAtDay(line.routePoints, day)) {
+        for (const [s1, s2] of pairs(route.stations)) {
+          const edgeId = `${s1}--${s2}`;
+          seenEdges.add(edgeId);
+          const prevState = lastEdgeStates.get(edgeId) ?? ServiceState.Never;
+          const curState = route.state;
 
-        // Determine from/to states based on play direction
-        const fromState = isForward ? prevState : pt.state;
-        const toState = isForward ? pt.state : prevState;
+          if (curState === prevState) continue;
 
-        this.applyLineEvent(line, pt.day, fromState, toState);
+          lastEdgeStates.set(edgeId, curState);
+          this.applySegmentEvent(line, s1, s2, prevState, curState);
+        }
+      }
+      // View unseen edges as closed
+      for (const [edgeId, prevState] of lastEdgeStates.entries()) {
+        if (seenEdges.has(edgeId)) continue;
+
+        const curState = ServiceState.Closed;
+        if (curState === prevState) continue;
+
+        lastEdgeStates.set(edgeId, curState);
+        const [s1, s2] = edgeId.split("--");
+        if (!s1 || !s2) continue;
+        this.applySegmentEvent(line, s1, s2, prevState, curState);
       }
 
       // Station-level events
       for (const station of line.stations) {
-        const stationKey = `${line.id}:${station.id}`;
-        for (const pt of station.service) {
-          if (pt.day <= minDay || pt.day > maxDay) continue;
+        const prevState = this.lastStationStates.get(station.id) ?? ServiceState.Never;
+        const curState = getStationStateAtDay(station, day);
 
-          const prevState = this.lastStationStates.get(stationKey) ?? ServiceState.Never;
-          if (isForward) {
-            this.lastStationStates.set(stationKey, pt.state);
-          }
+        if (curState === prevState) continue;
 
-          // Determine from/to states based on play direction
-          const fromState = isForward ? prevState : pt.state;
-          const toState = isForward ? pt.state : prevState;
+        this.lastStationStates.set(station.id, curState);
+        this.applyStationEvent(line, station, prevState, curState);
+      }
 
-          this.applyStationEvent(line, station, pt.day, fromState, toState);
+      // Line-level events.
+      // Put it at last to properly apply gust after all segment/station events.
+      {
+        const prevState = this.lastLineStates.get(line.id) ?? ServiceState.Never;
+        const curState = getStateAtDay(line.statePoints, day);
+
+        if (curState !== prevState) {
+          this.lastLineStates.set(line.id, curState);
+          this.applyLineEvent(prevState, curState);
         }
       }
     }
   }
 
-  private applyLineEvent(
+  private applyLineEvent(fromState: ServiceState, toState: ServiceState) {
+    if (toState === ServiceState.Open) {
+      this.blossomSystem.triggerGust(fromState === ServiceState.Never ? 2 : 1.2);
+    }
+  }
+
+  private applySegmentEvent(
     line: LineData,
-    day: number,
+    sid1: StationId,
+    sid2: StationId,
     fromState: ServiceState,
     toState: ServiceState,
   ) {
     const emission = getLineEmission(fromState, toState);
     if (!emission) return;
 
-    // Get all active station positions for this line at this day
-    const activeStationPositions: { x: number; y: number }[] = [];
-    for (const station of line.stations) {
-      const pos = getStationPositionAtDay(station, day);
-      if (pos) {
-        activeStationPositions.push(pos);
-      }
-    }
+    const firstPos = this.stationPositions.get(sid1);
+    const lastPos = this.stationPositions.get(sid2);
+    if (!firstPos || !lastPos) return;
 
-    // Emit across all stations on the line
-    const emitAcrossLine = (cfg: EmitterConfig, intensity: number = 1) => {
-      // Distribute intensity across stations
-      const perStationIntensity = intensity / Math.max(1, Math.sqrt(activeStationPositions.length));
-      for (const pos of activeStationPositions) {
-        this.blossomSystem.emitBurst(cfg, {
-          x: pos.x,
-          y: pos.y,
-          color: line.colorHex,
-          intensity: perStationIntensity,
-        });
-      }
-    };
-
-    // Emit based on event type
-    const intensity = toState === ServiceState.Open ? 1.5 : 1;
-    emitAcrossLine(emission, intensity);
-    if (toState === ServiceState.Open) {
-      this.blossomSystem.triggerGust(fromState === ServiceState.Never ? 2 : 1.2);
-    }
+    const emitter = new LineEmitter(this.blossomSystem, emission, firstPos, lastPos, line.colorHex);
+    this.blossomSystem.addEmitter(emitter);
   }
 
   private applyStationEvent(
     line: LineData,
     station: StationData,
-    day: number,
     fromState: ServiceState,
     toState: ServiceState,
   ) {
     const emission = getStationEmission(fromState, toState);
-    if (!emission) {
-      return;
-    }
+    if (!emission) return;
 
-    // Get station position
-    const pos = getStationPositionAtDay(station, day);
-    if (!pos) {
-      return;
-    }
+    const posRef = this.stationPositions.get(station.id);
+    if (!posRef) return;
 
-    this.blossomSystem.emitBurst(emission, {
-      x: pos.x,
-      y: pos.y,
-      color: line.colorHex,
-    });
+    const emitter = new PointEmitter(this.blossomSystem, emission, posRef, line.colorHex);
+    this.blossomSystem.addEmitter(emitter);
   }
 }
 
 // Helper to determine event type for state transitions
 // When playing backward, we emit the inverse event
-const getLineEmission = (from: ServiceState, to: ServiceState): EmitterConfig | undefined => {
-  if (from === ServiceState.Never || from === ServiceState.Closed) return EMISSIONS.open;
-  if (to === ServiceState.Never || to === ServiceState.Closed) return EMISSIONS.close;
-  if (from === ServiceState.Open && to === ServiceState.Suspended) return EMISSIONS.suspend;
-  if (from === ServiceState.Suspended && to === ServiceState.Open) return EMISSIONS.resume;
+const getLineEmission = (from: ServiceState, to: ServiceState): LineEmitterConfig | undefined => {
+  if (from === ServiceState.Never || from === ServiceState.Closed) return EMISSIONS.lineOpen;
+  if (to === ServiceState.Never || to === ServiceState.Closed) return EMISSIONS.lineClose;
+  if (from === ServiceState.Open && to === ServiceState.Suspended) return EMISSIONS.lineSuspend;
+  if (from === ServiceState.Suspended && to === ServiceState.Open) return EMISSIONS.lineResume;
 };
 
-const getStationEmission = (from: ServiceState, to: ServiceState): EmitterConfig | undefined => {
+const getStationEmission = (
+  from: ServiceState,
+  to: ServiceState,
+): PointEmitterConfig | undefined => {
   if (from === ServiceState.Never || from === ServiceState.Closed) return EMISSIONS.stationOpen;
   if (to === ServiceState.Never || to === ServiceState.Closed) return EMISSIONS.stationClose;
   if (from === ServiceState.Open && to === ServiceState.Suspended) return EMISSIONS.stationSuspend;

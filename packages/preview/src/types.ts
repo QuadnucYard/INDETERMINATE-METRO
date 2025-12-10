@@ -1,6 +1,10 @@
-import type { ServiceState, StationData, Vec2 } from "im-shared/types";
+import type { ServiceState, StationData, StationId, Vec2 } from "im-shared/types";
 
 export * from "im-shared/types";
+
+export type Ref<T> = { val: T };
+
+export type Vec2Ref = Ref<Vec2 | undefined>;
 
 export type Rect = {
   width: number;
@@ -21,3 +25,5 @@ export interface ActiveLineStations {
   readonly firstPos: Vec2;
   readonly lastPos: Vec2;
 }
+
+export type StationPositionRefs = Map<StationId, Vec2Ref>; // StationUid -> Vec2Ref

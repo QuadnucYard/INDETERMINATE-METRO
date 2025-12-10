@@ -1,6 +1,6 @@
 import { Rgb } from "../color";
+import { getStationPositionAtDay } from "../keyframe";
 import { type LineData, type PreviewData, ServiceState } from "../types";
-import { getStationPositionAtDay } from "../utils";
 import { EMITTER_PRESETS } from "./presets";
 import type { ParticleSystem } from "./system";
 import type { EmitterConfig, StrokeSegment, Vec2 } from "./types";

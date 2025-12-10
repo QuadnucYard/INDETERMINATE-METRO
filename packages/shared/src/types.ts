@@ -23,8 +23,10 @@ export type StationPoint = Keyed<Vec2>;
 
 export type LineId = string;
 export type StationId = string;
+export type StationName = string;
 
 export type StationData = {
+  /** Globally unique id for the station */
   id: StationId;
   name: string;
   translation?: string;

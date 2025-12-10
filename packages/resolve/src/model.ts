@@ -1,17 +1,23 @@
 import assert from "node:assert";
-import { type LineId, type RouteData, ServiceState, type StationId } from "im-shared/types";
+import {
+  type LineId,
+  type RouteData,
+  ServiceState,
+  type StationId,
+  type StationName,
+} from "im-shared/types";
 import * as _ from "radash";
 import type { Route } from "./model/route";
 import { computeLevels, extractRouteStations, resolveRoutes } from "./model/route";
 import type { EventRecord, LineMeta, StationsSpec } from "./types";
 
 export interface LineState {
-  stationIds: StationId[];
   /** Should be either `Never` or `Open` */
   state: ServiceState;
   /** Routes of the line, forming a tree */
   routes: Route[];
   stations: Map<StationId, StationState>; // stationId -> state
+  stationIdMap: Map<StationName, StationId>; // stationName -> stationId
 }
 
 export interface StationState {
@@ -40,6 +46,10 @@ export interface StationSnapshot {
   level: number;
 }
 
+export function formatStationId(lineId: LineId, stationName: StationId): string {
+  return `${lineId}:${stationName}`;
+}
+
 // Currently, the branch support is limited.
 // We do not support tree structure changes, only linear routes with possible junctions.
 export class MetroModel {
@@ -48,12 +58,14 @@ export class MetroModel {
   constructor(metas: LineMeta[]) {
     this.lines = new Map();
 
-    for (const m of metas) {
+    for (const lm of metas) {
       // Extract station IDs from [name, translation] pairs
-      const stationIds = m.stations.map((s) => s[0]);
+      const stationNames = lm.stations.map((s) => s[0]);
+      const stationIds = stationNames.map((name) => formatStationId(lm.id, name));
+      const stationIdMap = new Map(_.zip(stationNames, stationIds));
 
       // Initialize line state
-      const routes = resolveRoutes(stationIds, m.routes);
+      const routes = resolveRoutes(stationNames, stationIdMap, lm.routes);
       const stationMap = new Map(
         stationIds.map((sid): [StationId, StationState] => [
           sid,
@@ -82,15 +94,15 @@ export class MetroModel {
 
       computeLevels(routes, stationMap);
 
-      this.lines.set(m.id, {
-        stationIds,
+      this.lines.set(lm.id, {
         state: ServiceState.Never,
         routes,
         stations: stationMap,
+        stationIdMap,
       });
 
       console.log(
-        `Full route for Line ${m.id}:`,
+        `Full route for Line ${lm.id}:`,
         routes.map((route) => route.stations),
       );
     }
@@ -168,16 +180,26 @@ export class MetroModel {
     segment: StationId[];
     subset: StationId[];
   } {
+    const lineState = this.getLineState(lineId);
+    const getStationId = (name: StationName): StationId => {
+      const sid = lineState.stationIdMap.get(name);
+      assert(sid, `Station name '${name}' not found on line '${lineId}'`);
+      return sid;
+    };
+
     if (Array.isArray(spec)) {
       // It's a list of names
-      return { segment: spec, subset: spec };
+      const stationIds = spec.map(getStationId);
+      return { segment: stationIds, subset: stationIds };
     }
-
-    const lineState = this.getLineState(lineId);
     const stations = lineState.stations;
 
     // It's a range { from, to, except }
-    const segment = extractRouteStations(lineState.routes, spec.from, spec.to);
+    const segment = extractRouteStations(
+      lineState.routes,
+      getStationId(spec.from),
+      getStationId(spec.to),
+    );
 
     // Include the endpoint if it is a realtime terminus.
     // In the tree, it means it has exactly one active neighbor.
@@ -199,7 +221,7 @@ export class MetroModel {
     if (!isEndpoint(subset.at(-1))) subset.shift();
 
     if (spec.except) {
-      const exceptSet = new Set(spec.except);
+      const exceptSet = new Set(spec.except.map(getStationId));
       return { segment, subset: subset.filter((s) => !exceptSet.has(s)) };
     }
     if (subset.length === 0) {
@@ -277,7 +299,10 @@ export class MetroModel {
     // simplify routes by merging consecutive ones with the same state
     // to ensure routes break at junctions, we should check occurrence of stations
     const simplified: RouteData[] = [];
-    const occurrence = _.counting(_.flat(routes.map((r) => r.stations)), (sid) => sid);
+    const occurrence = _.counting(
+      routes.flatMap((r) => r.stations),
+      (sid) => sid,
+    );
     for (const r of routes) {
       const last = simplified.at(-1);
       if (

@@ -12,7 +12,7 @@ import {
   type Vec2,
 } from "im-shared/types";
 import { calculateStationPositions } from "./layout";
-import { MetroModel } from "./model";
+import { formatStationId, MetroModel } from "./model";
 import { loadJson, loadRidershipData } from "./parse";
 import type { EventRecord, LineMeta } from "./types";
 
@@ -62,7 +62,7 @@ function simulate(
         statePoints: [],
         routePoints: [],
         stations: lm.stations.map((s) => ({
-          id: s[0], // Use Chinese name as ID
+          id: formatStationId(lm.id, s[0]),
           name: s[0],
           translation: s[1],
           positions: [],
@@ -87,7 +87,9 @@ function simulate(
       lm.id,
       {
         routes: [],
-        stations: new Map<StationId, TrackedStationState>(lm.stations.map((s) => [s[0], {}])),
+        stations: new Map<StationId, TrackedStationState>(
+          lm.stations.map((s) => [formatStationId(lm.id, s[0]), {}]),
+        ),
       },
     ]),
   );
@@ -173,7 +175,7 @@ function simulate(
 
         // Service State (Sparse)
         const station = line.stations.get(stationId);
-        assert(station);
+        assert(station, `Tracked station state missing for ${stationId} on line ${lineId}`);
 
         const state = stationSnapshot.state;
         if (station.service !== state) {

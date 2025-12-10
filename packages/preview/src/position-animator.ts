@@ -1,5 +1,14 @@
-import type { LineData, LineId, PreviewData, StationData, StationId, Vec2 } from "./types";
-import { getStationPositionAtDay } from "./utils";
+import { lerp, midpoint } from "im-shared/math";
+import { getStationPositionAtDay } from "./keyframe";
+import type {
+  LineData,
+  LineId,
+  PreviewData,
+  StationData,
+  StationId,
+  StationPositionRefs,
+  Vec2,
+} from "./types";
 
 interface AnimatedPosition {
   current: Vec2;
@@ -26,24 +35,25 @@ export class PositionAnimator {
    * Returns animated positions for rendering
    */
   public update(
+    stationPositions: StationPositionRefs,
     data: PreviewData,
     currentDay: number,
     now: number,
-  ): Map<LineId, Map<StationId, Vec2>> {
+  ) {
     const day = Math.floor(currentDay);
-
-    const result = new Map<LineId, Map<StationId, Vec2>>();
 
     for (const [lineId, line] of Object.entries(data.lines)) {
       const linePositions = this.getOrCreateLineMap(lineId);
       this.updateLinePositions(linePositions, line, day, now);
-      const resultLine = new Map(
-        linePositions.entries().map(([stationId, anim]) => [stationId, anim.current]),
-      );
-      result.set(lineId, resultLine);
+      for (const [sid, anim] of linePositions.entries()) {
+        const posRef = stationPositions.get(sid);
+        if (posRef) {
+          posRef.val = anim.current;
+        } else {
+          stationPositions.set(sid, { val: anim.current });
+        }
+      }
     }
-
-    return result;
   }
 
   private updateLinePositions(
@@ -53,11 +63,7 @@ export class PositionAnimator {
     now: number,
   ) {
     // First pass: collect all current target positions for insertion point calculation
-    const stationTargets: {
-      station: StationData;
-      target: Vec2;
-      index: number;
-    }[] = [];
+    const stationTargets: StationTarget[] = [];
     for (let i = 0; i < line.stations.length; i++) {
       const station = line.stations[i];
       if (!station) continue;
@@ -138,13 +144,19 @@ export class PositionAnimator {
   }
 }
 
+interface StationTarget {
+  station: StationData;
+  target: Vec2;
+  index: number;
+}
+
 /**
  * Find the insertion point Y for a group of newly appearing stations.
  * Returns the Y position between existing animated stations based on their order.
  */
 function findInsertionPoint(
   stationId: StationId,
-  stationTargets: readonly { station: StationData; target: Vec2; index: number }[],
+  stationTargets: readonly StationTarget[],
   linePositions: ReadonlyMap<StationId, AnimatedPosition>,
 ): Vec2 {
   // Find the index for the requested station
@@ -189,17 +201,6 @@ function findInsertionPoint(
 
   // Fallback if something unexpected occurred
   return current.target;
-}
-
-function midpoint(p1: Vec2, p2: Vec2): Vec2 {
-  return { x: (p1.x + p2.x) * 0.5, y: (p1.y + p2.y) * 0.5 };
-}
-
-function lerp(p1: Vec2, p2: Vec2, t: number): Vec2 {
-  return {
-    x: p1.x + (p2.x - p1.x) * t,
-    y: p1.y + (p2.y - p1.y) * t,
-  };
 }
 
 /**

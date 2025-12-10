@@ -7,7 +7,7 @@ import {
   type RouteData,
   ServiceState,
   type StationData,
-  type StationId,
+  type StationPositionRefs,
   type Vec2,
 } from "./types";
 
@@ -65,7 +65,7 @@ export function getRouteSegmentsAtDay(
 export function getActiveStations(
   line: LineData,
   day: number,
-  stationPositions?: Map<StationId, Vec2>,
+  stationPositions?: StationPositionRefs,
 ): ActiveLineStations {
   const activeStations: { station: StationData; pos: Vec2; state: ServiceState }[] = [];
 
@@ -78,7 +78,7 @@ export function getActiveStations(
     if (stState === ServiceState.Never || stState === ServiceState.Closed) continue;
 
     // Use animated position if available
-    const pos = stationPositions?.get(station.id);
+    const pos = stationPositions?.get(station.id)?.val;
     if (!pos) continue;
 
     activeStations.push({ station, pos, state: stState });

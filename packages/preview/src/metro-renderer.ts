@@ -1,21 +1,20 @@
 import { CanvasRenderer } from "./canvas-renderer";
 import { Rgb, Rgba } from "./color";
 import {
-  type ActiveLineStations,
-  type LineData,
-  type LineId,
-  type PreviewData,
-  type RenderStyle,
-  ServiceState,
-  type StationId,
-  type Vec2,
-} from "./types";
-import {
   getActiveStations,
   getRidershipAtDay,
   getRouteSegmentsAtDay,
   getStateAtDay,
-} from "./utils";
+} from "./keyframe";
+import {
+  type ActiveLineStations,
+  type LineData,
+  type PreviewData,
+  type RenderStyle,
+  ServiceState,
+  type StationPositionRefs,
+  type Vec2,
+} from "./types";
 
 // const LINE_MARGIN = 5;
 const STATION_RADIUS = 6;
@@ -31,11 +30,10 @@ export class MetroRenderer extends CanvasRenderer {
     data: PreviewData,
     day: number,
     styles: RenderStyle,
-    stationPositions?: Map<LineId, Map<StationId, Vec2>>,
+    stationPositions?: StationPositionRefs,
   ) {
     type LineRenderData = {
       line: LineData;
-      positions?: Map<StationId, Vec2>;
       activeStations: ActiveLineStations;
       routeSegments: RouteSegmentInfo[];
       widthPx: number;
@@ -48,19 +46,18 @@ export class MetroRenderer extends CanvasRenderer {
     const dayIndex = Math.floor(day);
 
     // Prepare render data
-    for (const [lineId, line] of Object.entries(lines)) {
+    for (const line of Object.values(lines)) {
       const lineState = getStateAtDay(line.statePoints, dayIndex);
       if (lineState === ServiceState.Never || lineState === ServiceState.Closed) continue;
 
-      const positions = stationPositions?.get(lineId);
-      const activeStations = getActiveStations(line, dayIndex, positions);
+      const activeStations = getActiveStations(line, dayIndex, stationPositions);
       if (activeStations.activeStations.length === 0) continue;
 
       // Get route segments for this line
       const rawRouteSegments = getRouteSegmentsAtDay(line.routePoints, dayIndex);
       const routeSegments = rawRouteSegments.map((segment) => {
         const pts = segment.stations
-          .map((sid) => positions?.get(sid))
+          .map((sid) => stationPositions?.get(sid)?.val)
           .filter((p) => p !== undefined) as Vec2[];
         return { positions: pts, state: segment.state } as RouteSegmentInfo;
       });
@@ -71,7 +68,6 @@ export class MetroRenderer extends CanvasRenderer {
 
       lineRenderData.push({
         line,
-        positions,
         activeStations,
         routeSegments,
         widthPx,

@@ -3,30 +3,31 @@ import van from "vanjs-core";
 import { BlossomSchedule } from "./blossom/schedule";
 import { BlossomSystem } from "./blossom/system";
 import type { ControlsState } from "./controls";
+import { getTotalRidershipAtDay } from "./keyframe";
 import { MetroRenderer } from "./metro-renderer";
 import { ModelRenderer } from "./model-renderer";
 import { PositionAnimator } from "./position-animator";
-import type { LineId, PreviewData, Rect, RenderStyle, StationId, Vec2 } from "./types";
-import { getTotalRidershipAtDay } from "./utils";
+import type { PreviewData, Rect, RenderStyle, StationPositionRefs } from "./types";
 
 function useMetroRenderer(
   data: State<PreviewData | null>,
   controlsState: ControlsState,
   styles: State<RenderStyle>,
+  stationPositions: StationPositionRefs,
 ) {
   const renderer = new MetroRenderer();
   const positionAnimator = new PositionAnimator();
-  let animatedPositions: Map<LineId, Map<StationId, Vec2>> | undefined;
 
   const render = (data: PreviewData) => {
     // Update animated positions
-    animatedPositions = positionAnimator.update(
+    positionAnimator.update(
+      stationPositions,
       data,
       controlsState.currentDay.val,
       performance.now(),
     );
     // Render frame with animated positions
-    renderer.render(data, controlsState.currentDay.val, styles.val, animatedPositions);
+    renderer.render(data, controlsState.currentDay.val, styles.val, stationPositions);
   };
 
   const resize = (data: PreviewData, rect: Rect) => {
@@ -91,6 +92,7 @@ function useBlossomRenderer(data: State<PreviewData | null>, controlsState: Cont
 
   const schedule = new BlossomSchedule(blossomSystem);
 
+  // Sync schedule to current day
   van.derive(() => {
     if (!data.val) return;
 
@@ -136,7 +138,9 @@ export function useRenderer(
 ) {
   const { div } = van.tags;
 
-  const metroRenderer = useMetroRenderer(data, controlsState, styles);
+  const stationPositions: StationPositionRefs = new Map();
+
+  const metroRenderer = useMetroRenderer(data, controlsState, styles, stationPositions);
   const blossomRenderer = useBlossomRenderer(data, controlsState);
   const modelRenderer = useModelRenderer(data, controlsState);
 

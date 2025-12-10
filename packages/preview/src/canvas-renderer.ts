@@ -1,6 +1,6 @@
 import type { Rect } from "./types";
 
-export class CanvasRenderer {
+export abstract class CanvasRenderer {
   protected canvas: HTMLCanvasElement;
   protected scale: number = 1;
   protected pixelRatio: number = 1;

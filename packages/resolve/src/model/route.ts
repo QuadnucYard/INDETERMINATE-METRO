@@ -1,5 +1,5 @@
 import assert from "node:assert";
-import type { StationId } from "im-shared/types";
+import type { StationId, StationName } from "im-shared/types";
 import type { StationState } from "../model";
 import type { Route as RawRoute } from "../types";
 
@@ -9,31 +9,39 @@ export interface Route {
   stations: StationId[];
 }
 
-export function resolveRoutes(stationIds: StationId[], rawRoute?: RawRoute[]): Route[] {
+export function resolveRoutes(
+  stationNames: StationName[],
+  stationIdMap: Map<StationName, StationId>,
+  rawRoute?: RawRoute[],
+): Route[] {
   const routes: RawRoute[] = (() => {
     if (rawRoute) return rawRoute;
-    const first = stationIds[0];
-    const last = stationIds.at(-1);
+    const first = stationNames[0];
+    const last = stationNames.at(-1);
     return first && last ? [[{ from: first, to: last }]] : [];
   })();
   return routes.map((route) => ({
-    stations: resolveRoute(stationIds, route),
+    stations: resolveRoute(stationNames, route).map((name) => {
+      const sid = stationIdMap.get(name);
+      assert(sid, `Station name '${name}' not found in stationIdMap`);
+      return sid;
+    }),
   }));
 }
 
 /**
  * Resolve a single route spec into an ordered array of station IDs.
  */
-export function resolveRoute(stationIds: StationId[], route: RawRoute): StationId[] {
-  const result: StationId[] = [];
+export function resolveRoute(stationNames: StationName[], route: RawRoute): StationName[] {
+  const result: StationName[] = [];
   for (const item of route) {
     if (typeof item === "string") {
       // Single station
-      assert(stationIds.includes(item), `Station '${item}' not found`);
+      assert(stationNames.includes(item), `Station '${item}' not found`);
       result.push(item);
     } else {
       // Range { from, to }
-      const { segment } = extractRangeStations(stationIds, item.from, item.to);
+      const { segment } = extractRangeStations(stationNames, item.from, item.to);
       result.push(...segment);
     }
   }

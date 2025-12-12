@@ -26,4 +26,4 @@ export interface ActiveLineStations {
   readonly lastPos: Vec2;
 }
 
-export type StationPositionRefs = Map<StationId, Vec2Ref>; // StationUid -> Vec2Ref
+export type PositionRefMap = Map<StationId, Vec2Ref>; // StationUid -> Vec2Ref

@@ -36,11 +36,18 @@ export type StationData = {
   service: KeyedArray<{ state: ServiceState }>;
 };
 
+export type TrainHeadAtlas = {
+  path: string; // atlas image filename
+  region: { x: number; y: number; w: number; h: number }; // sprite region in atlas
+};
+
 export type LineData = {
   id: LineId;
   name?: string;
   colorHex: string;
   x: number;
+  head?: TrainHeadAtlas; // train head sprite atlas info
+  headPositions: KeyedArray<{ value: Vec2 }>; // keyed positions for train head
   /** The first day with ridership */
   firstDay?: number;
   /** raw ridership counts in 万人 (10k passengers) per day. Should be looked up with offset */

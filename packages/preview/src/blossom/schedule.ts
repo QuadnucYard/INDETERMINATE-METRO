@@ -3,12 +3,13 @@ import { getRouteSegmentsAtDay, getStateAtDay, getStationStateAtDay } from "../k
 import {
   type LineData,
   type LineId,
+  type PositionRefMap,
   type PreviewData,
   ServiceState,
   type StationData,
   type StationId,
-  type StationPositionRefs,
 } from "../types";
+import { headKey } from "../utils";
 import type { LineEmitterConfig, PointEmitterConfig } from "./config";
 import { LineEmitter, PointEmitter } from "./emitter";
 import { EMITTER_CONFIGS as EMISSIONS } from "./presets";
@@ -23,7 +24,7 @@ export class BlossomSchedule {
 
   constructor(
     private blossomSystem: BlossomSystem,
-    private stationPositions: StationPositionRefs,
+    private positionMap: PositionRefMap,
   ) {}
 
   public update(data: PreviewData, day: number) {
@@ -86,16 +87,26 @@ export class BlossomSchedule {
 
         if (curState !== prevState) {
           this.lastLineStates.set(line.id, curState);
-          this.applyLineEvent(prevState, curState);
+          this.applyLineEvent(line, prevState, curState);
         }
       }
     }
   }
 
-  private applyLineEvent(fromState: ServiceState, toState: ServiceState) {
+  private applyLineEvent(line: LineData, fromState: ServiceState, toState: ServiceState) {
     if (toState === ServiceState.Open) {
       this.blossomSystem.triggerGust(fromState === ServiceState.Never ? 2 : 1.2);
     }
+
+    // Emit particles at train head based on state transition
+    const trainHeadPosRef = this.positionMap.get(headKey(line.id));
+    if (!trainHeadPosRef?.val) return;
+
+    const emission = geTrainEmission(fromState, toState);
+    if (!emission) return;
+
+    const emitter = new PointEmitter(this.blossomSystem, emission, trainHeadPosRef, line.colorHex);
+    this.blossomSystem.addEmitter(emitter);
   }
 
   private applySegmentEvent(
@@ -108,8 +119,8 @@ export class BlossomSchedule {
     const emission = getLineEmission(fromState, toState);
     if (!emission) return;
 
-    const firstPos = this.stationPositions.get(sid1);
-    const lastPos = this.stationPositions.get(sid2);
+    const firstPos = this.positionMap.get(sid1);
+    const lastPos = this.positionMap.get(sid2);
     if (!firstPos || !lastPos) return;
 
     const emitter = new LineEmitter(this.blossomSystem, emission, firstPos, lastPos, line.colorHex);
@@ -125,7 +136,7 @@ export class BlossomSchedule {
     const emission = getStationEmission(fromState, toState);
     if (!emission) return;
 
-    const posRef = this.stationPositions.get(station.id);
+    const posRef = this.positionMap.get(station.id);
     if (!posRef) return;
 
     const emitter = new PointEmitter(this.blossomSystem, emission, posRef, line.colorHex);
@@ -150,4 +161,11 @@ const getStationEmission = (
   if (to === ServiceState.Never || to === ServiceState.Closed) return EMISSIONS.stationClose;
   if (from === ServiceState.Open && to === ServiceState.Suspended) return EMISSIONS.stationSuspend;
   if (from === ServiceState.Suspended && to === ServiceState.Open) return EMISSIONS.stationResume;
+};
+
+const geTrainEmission = (from: ServiceState, to: ServiceState): PointEmitterConfig | undefined => {
+  if (from === ServiceState.Never || from === ServiceState.Closed) return EMISSIONS.trainOpen;
+  if (to === ServiceState.Never || to === ServiceState.Closed) return EMISSIONS.trainClose;
+  if (from === ServiceState.Open && to === ServiceState.Suspended) return EMISSIONS.trainSuspend;
+  if (from === ServiceState.Suspended && to === ServiceState.Open) return EMISSIONS.trainResume;
 };

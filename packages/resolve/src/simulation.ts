@@ -12,11 +12,10 @@ import { formatStationId, MetroModel } from "./model";
 import type { EventRecord, LineMeta } from "./types";
 
 export interface LayoutConfig {
-  width: number;
-  height: number;
-  topPadding: number;
-  bottomPadding: number;
+  lineTop: number;
+  lineBottom: number;
   branchOffset: number;
+  headY: number;
 }
 
 interface TrackedLineState {
@@ -48,6 +47,8 @@ export function simulate(
         id: lm.id,
         colorHex: lm.color,
         x: lm.x ?? 160 + index * 80,
+        head: lm.head,
+        headPositions: [],
         ridership: [],
         statePoints: [],
         routePoints: [],
@@ -154,10 +155,18 @@ export function simulate(
         line.routes,
         snapshot.stations,
         lineData.x,
-        layoutConfig.topPadding,
-        layoutConfig.height - layoutConfig.bottomPadding,
+        layoutConfig.lineTop,
+        layoutConfig.lineBottom,
         layoutConfig.branchOffset,
       );
+
+      const headPos = { x: lineData.x, y: layoutConfig.headY };
+
+      // Add train head position if it changed
+      const lastHeadPos = lineData.headPositions.at(-1);
+      if (!lastHeadPos || lastHeadPos.value.x !== headPos.x || lastHeadPos.value.y !== headPos.y) {
+        lineData.headPositions.push({ day: i, value: headPos });
+      }
 
       // Update station data
       for (const [stationId, stationSnapshot] of snapshot.stations) {

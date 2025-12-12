@@ -1,14 +1,7 @@
 import { lerp, midpoint } from "im-shared/math";
 import { getStationPositionAtDay } from "./keyframe";
-import type {
-  LineData,
-  LineId,
-  PreviewData,
-  StationData,
-  StationId,
-  StationPositionRefs,
-  Vec2,
-} from "./types";
+import type { LineData, PositionRefMap, PreviewData, StationData, StationId, Vec2 } from "./types";
+import { headKey } from "./utils";
 
 interface AnimatedPosition {
   current: Vec2;
@@ -28,40 +21,25 @@ const INSERTION_DURATION = 300;
  */
 export class PositionAnimator {
   // lineId -> stationId -> AnimatedPosition
-  private positions = new Map<LineId, Map<StationId, AnimatedPosition>>();
+  private positions = new Map<StationId, AnimatedPosition>();
 
   /**
    * Update target positions based on current day
    * Returns animated positions for rendering
    */
-  public update(
-    stationPositions: StationPositionRefs,
-    data: PreviewData,
-    currentDay: number,
-    now: number,
-  ) {
+  public update(positionMap: PositionRefMap, data: PreviewData, currentDay: number, now: number) {
     const day = Math.floor(currentDay);
 
-    for (const [lineId, line] of Object.entries(data.lines)) {
-      const linePositions = this.getOrCreateLineMap(lineId);
-      this.updateLinePositions(linePositions, line, day, now);
-      for (const [sid, anim] of linePositions.entries()) {
-        const posRef = stationPositions.get(sid);
-        if (posRef) {
-          posRef.val = anim.current;
-        } else {
-          stationPositions.set(sid, { val: anim.current });
-        }
-      }
+    for (const line of Object.values(data.lines)) {
+      this.updateLinePositions(line, day, now);
+      this.updateTrainHeadPositions(line, day);
     }
+
+    // Apply animated station positions
+    this.syncPositions(positionMap);
   }
 
-  private updateLinePositions(
-    linePositions: Map<StationId, AnimatedPosition>,
-    line: LineData,
-    day: number,
-    now: number,
-  ) {
+  private updateLinePositions(line: LineData, day: number, now: number) {
     // First pass: collect all current target positions for insertion point calculation
     const stationTargets: StationTarget[] = [];
     for (let i = 0; i < line.stations.length; i++) {
@@ -74,18 +52,18 @@ export class PositionAnimator {
         stationTargets.push({ station, target: pos, index: i });
       } else {
         // Station not active at this day - remove from animations
-        linePositions.delete(station.id);
+        this.positions.delete(station.id);
       }
     }
 
     // Second pass: animate positions
     for (const { station, target } of stationTargets) {
-      const anim = linePositions.get(station.id);
+      const anim = this.positions.get(station.id);
 
       if (!anim) {
         // First time seeing this station - animate from insertion point
-        const insertionPos = findInsertionPoint(station.id, stationTargets, linePositions);
-        linePositions.set(station.id, {
+        const insertionPos = findInsertionPoint(station.id, stationTargets, this.positions);
+        this.positions.set(station.id, {
           current: insertionPos,
           target,
           start: insertionPos,
@@ -113,27 +91,48 @@ export class PositionAnimator {
     }
   }
 
+  private updateTrainHeadPositions(line: LineData, day: number) {
+    const trainHeadPos = line.headPositions.findLast((p) => p.day <= day);
+    if (!trainHeadPos) return;
+
+    const key = headKey(line.id);
+    const anim = this.positions.get(key);
+    if (!anim) {
+      // First time seeing this train head - set position directly
+      this.positions.set(key, {
+        current: trainHeadPos.value,
+        target: trainHeadPos.value,
+        start: trainHeadPos.value,
+        startTime: 0,
+        duration: 0,
+      });
+    } else {
+      anim.current = trainHeadPos.value;
+      anim.target = trainHeadPos.value;
+    }
+  }
+
+  private syncPositions(positionMap: PositionRefMap) {
+    for (const [sid, anim] of this.positions.entries()) {
+      const posRef = positionMap.get(sid);
+      if (posRef) {
+        posRef.val = anim.current;
+      } else {
+        positionMap.set(sid, { val: anim.current });
+      }
+    }
+  }
+
   /**
    * Check if any animations are currently active
    */
   public isAnimating(now: number): boolean {
-    for (const lineMap of this.positions.values()) {
-      for (const anim of lineMap.values()) {
-        if (now - anim.startTime < anim.duration) {
-          return true;
-        }
+    for (const anim of this.positions.values()) {
+      if (now - anim.startTime < anim.duration) {
+        return true;
       }
     }
     return false;
-  }
-
-  private getOrCreateLineMap(lineId: LineId): Map<StationId, AnimatedPosition> {
-    let map = this.positions.get(lineId);
-    if (!map) {
-      map = new Map();
-      this.positions.set(lineId, map);
-    }
-    return map;
   }
 
   /**

@@ -7,27 +7,29 @@ import { getTotalRidershipAtDay } from "./keyframe";
 import { MetroRenderer } from "./metro-renderer";
 import { ModelRenderer } from "./model-renderer";
 import { PositionAnimator } from "./position-animator";
-import type { PreviewData, Rect, RenderStyle, StationPositionRefs } from "./types";
+import type { PositionRefMap, PreviewData, Rect, RenderStyle } from "./types";
 
 function useMetroRenderer(
   data: State<PreviewData | null>,
   controlsState: ControlsState,
   styles: State<RenderStyle>,
-  stationPositions: StationPositionRefs,
+  positionMap: PositionRefMap,
 ) {
   const renderer = new MetroRenderer();
   const positionAnimator = new PositionAnimator();
 
+  // Preload train head images when data is available
+  van.derive(() => {
+    if (data.val) {
+      renderer.preloadTrainHeads(data.val.lines);
+    }
+  });
+
   const render = (data: PreviewData) => {
     // Update animated positions
-    positionAnimator.update(
-      stationPositions,
-      data,
-      controlsState.currentDay.val,
-      performance.now(),
-    );
+    positionAnimator.update(positionMap, data, controlsState.currentDay.val, performance.now());
     // Render frame with animated positions
-    renderer.render(data, controlsState.currentDay.val, styles.val, stationPositions);
+    renderer.render(data, controlsState.currentDay.val, styles.val, positionMap);
   };
 
   const resize = (data: PreviewData, rect: Rect) => {
@@ -56,7 +58,7 @@ function useMetroRenderer(
 function useBlossomRenderer(
   data: State<PreviewData | null>,
   controlsState: ControlsState,
-  stationPositions: StationPositionRefs,
+  positionMap: PositionRefMap,
 ) {
   const blossomSystem = new BlossomSystem();
   blossomSystem.initPool(300);
@@ -94,7 +96,7 @@ function useBlossomRenderer(
     blossomSystem.resize(rect, data.meta);
   };
 
-  const schedule = new BlossomSchedule(blossomSystem, stationPositions);
+  const schedule = new BlossomSchedule(blossomSystem, positionMap);
 
   // Sync schedule to current day
   van.derive(() => {
@@ -142,10 +144,10 @@ export function useRenderer(
 ) {
   const { div } = van.tags;
 
-  const stationPositions: StationPositionRefs = new Map();
+  const positionMap: PositionRefMap = new Map();
 
-  const metroRenderer = useMetroRenderer(data, controlsState, styles, stationPositions);
-  const blossomRenderer = useBlossomRenderer(data, controlsState, stationPositions);
+  const metroRenderer = useMetroRenderer(data, controlsState, styles, positionMap);
+  const blossomRenderer = useBlossomRenderer(data, controlsState, positionMap);
   const modelRenderer = useModelRenderer(data, controlsState);
 
   const canvasContainer = div(

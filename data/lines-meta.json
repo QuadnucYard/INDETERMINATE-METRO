@@ -45,7 +45,8 @@
       [{ "from": "安德门", "to": "奥体中心" }],
       ["安德门", { "from": "天隆寺", "to": "中国药科大学" }]
     ],
-    "dummyRidership": 60.0
+    "dummyRidership": 60.0,
+    "head": { "path": "train-heads.png", "region": { "x": 0, "y": 0, "w": 256, "h": 256 } }
   },
   {
     "id": "2",
@@ -82,7 +83,8 @@
       ["南大仙林校区", "NJU XIANLIN CAMPUS"],
       ["经天路", "JINGTIANLU"]
     ],
-    "dummyRidership": 40.0
+    "dummyRidership": 40.0,
+    "head": { "path": "train-heads.png", "region": { "x": 256, "y": 0, "w": 256, "h": 256 } }
   },
   {
     "id": "3",
@@ -119,7 +121,8 @@
       ["秣周东路", "MOZHOUDONGLU"],
       ["上秦淮西", "SHANGQINHUAIXI"],
       ["秣陵", "MOLING"]
-    ]
+    ],
+    "head": { "path": "train-heads.png", "region": { "x": 768, "y": 0, "w": 256, "h": 256 } }
   },
   {
     "id": "4",
@@ -149,7 +152,8 @@
       ["孟北", "MENGBEI"],
       ["西岗桦墅", "XIGANGHUASHU"],
       ["仙林湖", "XIANLINHU"]
-    ]
+    ],
+    "head": { "path": "train-heads.png", "region": { "x": 0, "y": 256, "w": 256, "h": 256 } }
   },
   {
     "id": "5",
@@ -185,7 +189,8 @@
       ["诚信大道", "CHENGXINDADAO"],
       ["九龙湖南", "JIULONGHUNAN"],
       ["吉印大道", "JIYINDADAO"]
-    ]
+    ],
+    "head": { "path": "train-heads.png", "region": { "x": 768, "y": 256, "w": 256, "h": 256 } }
   },
   {
     "id": "6",
@@ -211,7 +216,8 @@
       ["十月广场", "SHIYUEGUANGCHANG"],
       ["金陵石化", "JINLINGSHIHUA"],
       ["栖霞山", "QIXIASHAN"]
-    ]
+    ],
+    "head": { "path": "train-heads.png", "region": { "x": 256, "y": 256, "w": 256, "h": 256 } }
   },
   {
     "id": "7",
@@ -244,7 +250,8 @@
       ["太清路", "TAIQINGLU"],
       ["螺塘路", "LUOTANGLU"],
       ["西善桥", "XISHANQIAO"]
-    ]
+    ],
+    "head": { "path": "train-heads.png", "region": { "x": 512, "y": 256, "w": 256, "h": 256 } }
   },
   {
     "id": "9",
@@ -296,7 +303,8 @@
       ["杨庄", "YANGZHUANG"],
       ["石杨路", "SHIYANGLU"],
       ["东麒路", "DONGQILU"]
-    ]
+    ],
+    "head": { "path": "train-heads.png", "region": { "x": 512, "y": 0, "w": 256, "h": 256 } }
   },
   {
     "id": "11",
@@ -337,7 +345,8 @@
       ["翔宇路南", "XIANGYULUNAN"],
       ["禄口机场", "LUKOU INTERNATIONAL AIRPORT"],
       ["空港新城江宁", "KONGGANGXINCHENGJIANGNING"]
-    ]
+    ],
+    "head": { "path": "train-heads.png", "region": { "x": 0, "y": 512, "w": 256, "h": 256 } }
   },
   {
     "id": "S2",
@@ -376,7 +385,8 @@
       ["桥林新城", "QIAOLINXINCHENG"],
       ["林山", "LINSHAN"],
       ["高家冲", "GAOJIACHONG"]
-    ]
+    ],
+    "head": { "path": "train-heads.png", "region": { "x": 256, "y": 512, "w": 256, "h": 256 } }
   },
   {
     "id": "S4",
@@ -423,7 +433,8 @@
       ["华阳", "HUAYANG"],
       ["崇明", "CHONGMING"],
       ["句容", "JURONG"]
-    ]
+    ],
+    "head": { "path": "train-heads.png", "region": { "x": 512, "y": 512, "w": 256, "h": 256 } }
   },
   {
     "id": "S7",
@@ -438,7 +449,8 @@
       ["中山湖", "ZHONGSHANHU"],
       ["幸庄", "XINGZHUANG"],
       ["无想山", "WUXIANGSHAN"]
-    ]
+    ],
+    "head": { "path": "train-heads.png", "region": { "x": 768, "y": 512, "w": 256, "h": 256 } }
   },
   {
     "id": "S8",
@@ -463,7 +475,8 @@
       ["沈桥", "SHENQIAO"],
       ["八百桥", "BABAIQIAO"],
       ["金牛湖", "JINNIUHU"]
-    ]
+    ],
+    "head": { "path": "train-heads.png", "region": { "x": 0, "y": 768, "w": 256, "h": 256 } }
   },
   {
     "id": "S9",
@@ -475,6 +488,7 @@
       ["明觉", "MINGJUE"],
       ["团结圩", "TUANJIEWEI"],
       ["高淳", "GAOCHUN"]
-    ]
+    ],
+    "head": { "path": "train-heads.png", "region": { "x": 256, "y": 768, "w": 256, "h": 256 } }
   }
 ]

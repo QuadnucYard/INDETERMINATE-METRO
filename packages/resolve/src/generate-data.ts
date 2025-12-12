@@ -14,9 +14,10 @@ const OUT_PATH = path.join(DATA_DIR, "../packages/preview/public/preview-data.js
 const CONFIG = {
   width: 1920,
   height: 1080,
-  topPadding: 50,
-  bottomPadding: 50,
-  branchOffset: 30, // x offset between main and branch stems
+  lineTop: 50, // y position of top of lines
+  lineBottom: 1080 - 105, // y position of bottom of lines
+  branchOffset: 50, // x offset between main and branch stems
+  headY: 1080 - 48,
 };
 
 /**

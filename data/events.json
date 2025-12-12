@@ -273,6 +273,19 @@
   },
 
   {
+    "date": "2021-11-01",
+    "line": "2",
+    "type": "suspend",
+    "stations": ["马群"]
+  },
+  {
+    "date": "2021-12-11",
+    "line": "2",
+    "type": "resume",
+    "stations": ["马群"]
+  },
+
+  {
     "date": "2021-12-28",
     "line": "2",
     "type": "open",

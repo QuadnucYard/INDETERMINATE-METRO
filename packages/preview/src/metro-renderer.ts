@@ -9,16 +9,25 @@ import {
 import {
   type ActiveLineStations,
   type LineData,
+  type PositionRefMap,
   type PreviewData,
   type RenderStyle,
   ServiceState,
-  type StationPositionRefs,
+  type TrainHeadAtlas,
   type Vec2,
 } from "./types";
+import { headKey } from "./utils";
 
 // const LINE_MARGIN = 5;
 const STATION_RADIUS = 6;
 const STATION_STROKE_WIDTH = 2.5;
+const TRAIN_HEAD_SIZE = 96;
+// Placeholder triangle pointing down
+const TRAIN_HEAD_SRC =
+  "data:image/svg+xml;base64," +
+  btoa(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 32 32"><path d="M4 4 L28 4 L16 28 Z" fill="white" stroke="black" stroke-width="2"/></svg>',
+  );
 
 type RouteSegmentInfo = { positions: Vec2[]; state: ServiceState };
 
@@ -26,16 +35,34 @@ type RouteSegmentInfo = { positions: Vec2[]; state: ServiceState };
  * Render the metro visualization
  */
 export class MetroRenderer extends CanvasRenderer {
-  public render(
-    data: PreviewData,
-    day: number,
-    styles: RenderStyle,
-    stationPositions?: StationPositionRefs,
-  ) {
+  private atlasImages: Map<string, HTMLImageElement> = new Map();
+  private placeholderImg: HTMLImageElement;
+
+  constructor() {
+    super();
+    this.placeholderImg = new Image();
+    this.placeholderImg.src = TRAIN_HEAD_SRC;
+  }
+
+  /**
+   * Preload train head atlas images
+   */
+  public preloadTrainHeads(lines: Record<string, LineData>) {
+    for (const line of Object.values(lines)) {
+      if (line.head && !this.atlasImages.has(line.head.path)) {
+        const img = new Image();
+        img.src = `${import.meta.env.BASE_URL}${line.head.path}`;
+        this.atlasImages.set(line.head.path, img);
+      }
+    }
+  }
+
+  public render(data: PreviewData, day: number, styles: RenderStyle, positionMap?: PositionRefMap) {
     type LineRenderData = {
       line: LineData;
       activeStations: ActiveLineStations;
       routeSegments: RouteSegmentInfo[];
+      headPos?: Vec2;
       widthPx: number;
       opacity: number;
       color: Rgb;
@@ -50,17 +77,19 @@ export class MetroRenderer extends CanvasRenderer {
       const lineState = getStateAtDay(line.statePoints, dayIndex);
       if (lineState === ServiceState.Never || lineState === ServiceState.Closed) continue;
 
-      const activeStations = getActiveStations(line, dayIndex, stationPositions);
+      const activeStations = getActiveStations(line, dayIndex, positionMap);
       if (activeStations.activeStations.length === 0) continue;
 
       // Get route segments for this line
       const rawRouteSegments = getRouteSegmentsAtDay(line.routePoints, dayIndex);
       const routeSegments = rawRouteSegments.map((segment) => {
         const pts = segment.stations
-          .map((sid) => stationPositions?.get(sid)?.val)
+          .map((sid) => positionMap?.get(sid)?.val)
           .filter((p) => p !== undefined) as Vec2[];
         return { positions: pts, state: segment.state } as RouteSegmentInfo;
       });
+
+      const headPos = positionMap?.get(headKey(line.id))?.val;
 
       const ridership = getRidershipAtDay(line, dayIndex);
       const widthPx = calculateWidth(ridership / 100) * styles.widthScale;
@@ -70,6 +99,7 @@ export class MetroRenderer extends CanvasRenderer {
         line,
         activeStations,
         routeSegments,
+        headPos,
         widthPx,
         opacity,
         color: Rgb.fromHex(line.colorHex),
@@ -96,7 +126,14 @@ export class MetroRenderer extends CanvasRenderer {
       this.renderLineStations(rd.activeStations, rd.color);
     }
 
-    // Pass 3: Draw all labels
+    // Pass 3: Draw train heads
+    for (const rd of lineRenderData) {
+      if (rd.headPos && rd.line.head) {
+        this.renderTrainHead(rd.line.head, rd.headPos, rd.opacity);
+      }
+    }
+
+    // Pass 4: Draw all labels
     if (styles.showLabels) {
       for (const rd of lineRenderData) {
         this.renderLineLabels(rd.line, rd.activeStations, rd.color.withAlpha(rd.opacity));
@@ -202,6 +239,40 @@ export class MetroRenderer extends CanvasRenderer {
     ctx.textBaseline = "bottom";
     const lineName = line.name || line.id;
     ctx.fillText(lineName, line.x, firstPos.y - 10);
+    ctx.restore();
+  }
+
+  private renderTrainHead(head: TrainHeadAtlas, pos: Vec2, opacity: number) {
+    const atlas = this.atlasImages.get(head.path);
+    const imgToUse = atlas?.complete && atlas.naturalWidth > 0 ? atlas : this.placeholderImg;
+
+    if (!imgToUse.complete || imgToUse.naturalWidth === 0) return;
+
+    const ctx = this.ctx;
+    const size = TRAIN_HEAD_SIZE;
+
+    ctx.save();
+    ctx.globalAlpha = opacity;
+
+    if (imgToUse === this.placeholderImg) {
+      // Draw placeholder centered at pos
+      ctx.drawImage(imgToUse, pos.x - size / 2, pos.y - size / 2, size, size);
+    } else {
+      // Draw sprite from atlas
+      const { x: sx, y: sy, w: sw, h: sh } = head.region;
+      ctx.drawImage(
+        imgToUse,
+        sx,
+        sy,
+        sw,
+        sh, // source rectangle in atlas
+        pos.x - size / 2,
+        pos.y - size / 2,
+        size,
+        size, // destination rectangle
+      );
+    }
+
     ctx.restore();
   }
 }

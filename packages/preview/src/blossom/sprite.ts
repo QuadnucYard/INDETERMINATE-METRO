@@ -1,12 +1,18 @@
 import blossomSvg from "../assets/blossom.svg?raw";
 import type { Vec3 } from "./utils";
 
-const SPRITE_VARIANTS = 4;
-const TEXTURE_SIZE = 64;
-const DPR = window.devicePixelRatio || 1;
+const SPRITE_VARIANTS: number = 6;
+const TEXTURE_SIZE: number = 64;
+const DPR: number = window.devicePixelRatio || 1;
 
 export class Sprite {
-  constructor(private canvas: HTMLCanvasElement) {}
+  constructor(
+    private atlas: HTMLCanvasElement,
+    private sx: number,
+    private sy: number,
+    private sw: number,
+    private sh: number,
+  ) {}
 
   public render(
     ctx: CanvasRenderingContext2D,
@@ -35,35 +41,55 @@ export class Sprite {
       pos.y * globalScale,
     );
 
-    ctx.drawImage(this.canvas, -TEXTURE_SIZE / 2, -TEXTURE_SIZE / 2, TEXTURE_SIZE, TEXTURE_SIZE);
+    ctx.drawImage(
+      this.atlas,
+      this.sx,
+      this.sy,
+      this.sw,
+      this.sh,
+      -this.sw / 2,
+      -this.sh / 2,
+      this.sw,
+      this.sh,
+    );
   }
 }
 
 export class BlossomSpriteCollection {
-  // Sprite textures (base white, cached tinted per color)
+  // Base sprite canvases (rotated variants)
   private baseSprites: HTMLCanvasElement[] = [];
 
+  // Tinted sprite cache: per color we store the allocated sprite objects
   private tintedSpriteCache = new Map<string, Sprite[]>();
 
-  private textureLoaded = false;
+  // Atlas allocator: fixed-size pages. Each page is subdivided into uniform tiles.
+  // Each color occupies one tile (a row containing variants).
+  private static readonly ATLAS_PAGE_SIZE = 1024; // logical pixels
+  private atlasAllocator: AtlasAllocator = new AtlasAllocator(
+    BlossomSpriteCollection.ATLAS_PAGE_SIZE,
+    TEXTURE_SIZE * DPR,
+    TEXTURE_SIZE * DPR,
+  );
+
+  private tempCanvas: HTMLCanvasElement = document.createElement("canvas");
+  private textureLoaded: boolean = false;
 
   constructor() {
     const svg = blossomSvg.replace(`fill="#DE0010"`, `fill="#ccc"`); // Make base white
     loadSprite(svg, (img) => {
+      const size = Math.round(TEXTURE_SIZE * DPR);
       // Create sprite variants with slight rotation differences
       for (let i = 0; i < SPRITE_VARIANTS; i++) {
         const canvas = document.createElement("canvas");
-        canvas.width = Math.round(TEXTURE_SIZE * DPR);
-        canvas.height = Math.round(TEXTURE_SIZE * DPR);
+        canvas.width = size;
+        canvas.height = size;
         const ctx = canvas.getContext("2d");
         if (!ctx) continue;
-        // Scale to allow drawing in logical pixels while keeping high DPI backing
-        ctx.scale(DPR, DPR);
 
-        ctx.translate(TEXTURE_SIZE / 2, TEXTURE_SIZE / 2);
+        ctx.translate(size / 2, size / 2);
         ctx.rotate((i * Math.PI) / (SPRITE_VARIANTS * 2));
-        ctx.scale(0.9 + i * 0.05, 0.9 + i * 0.05);
-        ctx.drawImage(img, -TEXTURE_SIZE / 2, -TEXTURE_SIZE / 2, TEXTURE_SIZE, TEXTURE_SIZE);
+        ctx.scale(1.0 - i * 0.05, 1.0 - i * 0.05);
+        ctx.drawImage(img, -size / 2, -size / 2, size, size);
 
         this.baseSprites.push(canvas);
       }
@@ -81,7 +107,7 @@ export class BlossomSpriteCollection {
   }
 
   /**
-   * Get tinted sprites for a given color (cached)
+   * Get tinted sprites for a given color (cached, using atlas)
    */
   public getTintedSprites(color: string): Sprite[] | null {
     if (!this.textureLoaded || this.baseSprites.length === 0) return null;
@@ -89,33 +115,46 @@ export class BlossomSpriteCollection {
     const cached = this.tintedSpriteCache.get(color);
     if (cached) return cached;
 
-    const tinted: Sprite[] = [];
-
+    const tintedSprites: Sprite[] = [];
     for (const baseSprite of this.baseSprites) {
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.round(TEXTURE_SIZE * DPR);
-      canvas.height = Math.round(TEXTURE_SIZE * DPR);
-      const ctx = canvas.getContext("2d");
-      if (!ctx) continue;
-      ctx.scale(DPR, DPR);
+      const { canvas, ctx, x: dX, y: dY } = this.atlasAllocator.allocate();
 
-      // Draw base sprite at logical size
-      ctx.drawImage(baseSprite, 0, 0, TEXTURE_SIZE, TEXTURE_SIZE);
+      const tinted = this.createTintedImage(baseSprite, color);
+      // Draw the tint into the allocated tile area
+      ctx.drawImage(tinted, dX, dY, tinted.width, tinted.height);
 
-      // Apply color tint using multiply blend
-      ctx.globalCompositeOperation = "multiply";
-      ctx.fillStyle = color;
-      ctx.fillRect(0, 0, TEXTURE_SIZE, TEXTURE_SIZE);
-
-      // Restore alpha from original
-      ctx.globalCompositeOperation = "destination-in";
-      ctx.drawImage(baseSprite, 0, 0, TEXTURE_SIZE, TEXTURE_SIZE);
-
-      tinted.push(new Sprite(canvas));
+      tintedSprites.push(new Sprite(canvas, dX, dY, tinted.width, tinted.height));
     }
+    this.tintedSpriteCache.set(color, tintedSprites);
 
-    this.tintedSpriteCache.set(color, tinted);
-    return tinted;
+    return tintedSprites;
+  }
+
+  private createTintedImage(baseSprite: HTMLCanvasElement, color: string): HTMLCanvasElement {
+    const size = Math.round(TEXTURE_SIZE * DPR);
+
+    const canvas = this.tempCanvas;
+    canvas.width = size;
+    canvas.height = size;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Unable to create tinted sprite canvas context");
+
+    ctx.clearRect(0, 0, size, size);
+
+    // Draw base sprite at logical size
+    ctx.drawImage(baseSprite, 0, 0, size, size);
+
+    // Apply color tint using multiply blend
+    ctx.globalCompositeOperation = "multiply";
+    ctx.fillStyle = color;
+    ctx.fillRect(0, 0, size, size);
+
+    // Restore alpha from original
+    ctx.globalCompositeOperation = "destination-in";
+    ctx.drawImage(baseSprite, 0, 0, size, size);
+
+    return canvas;
   }
 }
 
@@ -130,4 +169,60 @@ function loadSprite(svg: string, onLoad?: (img: HTMLImageElement) => void) {
     URL.revokeObjectURL(url);
   };
   img.src = url;
+}
+
+/**
+ * Simple atlas page allocator.
+ * - Pages are fixed-size logical pixels (pageSize x pageSize)
+ * - Each page is subdivided into a uniform grid of tiles sized tileWidth x tileHeight
+ * - allocate() returns a free cell and the page's canvas/context
+ */
+class AtlasAllocator {
+  private cols: number;
+  private rows: number;
+  private pages: Array<{ canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D }> = [];
+  // single global nextIndex used for all allocations
+  private nextIndex = 0;
+
+  constructor(private pageSize: number, private tileWidth: number, private tileHeight: number) {
+    this.cols = Math.floor(this.pageSize / this.tileWidth) || 1;
+    this.rows = Math.floor(this.pageSize / this.tileHeight) || 1;
+  }
+
+  public allocate() {
+    const cellsPerPage = this.cols * this.rows;
+
+    // Determine allocation slot using global nextIndex
+    const index = this.nextIndex++;
+    const pageIndex = Math.floor(index / cellsPerPage);
+    const cellIndex = index % cellsPerPage;
+    const col = cellIndex % this.cols;
+    const row = Math.floor(cellIndex / this.cols);
+
+    // Ensure the target page exists (create pages up to pageIndex)
+    if (this.pages.length <= pageIndex) {
+      this.createPage();
+    }
+
+    const p = this.pages[pageIndex];
+    if (!p) throw new Error("Allocated page missing");
+
+    return {
+      canvas: p.canvas,
+      ctx: p.ctx,
+      x: col * this.tileWidth,
+      y: row * this.tileHeight,
+    };
+  }
+
+  private createPage() {
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(this.pageSize);
+    canvas.height = Math.round(this.pageSize);
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Unable to create atlas page context");
+
+    this.pages.push({ canvas, ctx });
+  }
 }

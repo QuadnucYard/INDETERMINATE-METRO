@@ -301,6 +301,7 @@ export class BlossomSystem extends CanvasRenderer {
 
     ctx.save();
     ctx.setTransform(this.pixelRatio * this.scale, 0, 0, this.pixelRatio * this.scale, 0, 0);
+    ctx.globalCompositeOperation = "lighter";
 
     // Sort by depth (far to near for painter's algorithm)
     this.active.sort((a, b) => a.pos.z - b.pos.z);
@@ -334,7 +335,7 @@ export class BlossomSystem extends CanvasRenderer {
     const lifeAlpha = p.ttl > 0.3 ? 1 : p.ttl / 0.3;
     const alpha = depthAlpha * lifeAlpha * 0.9;
 
-    sprite.render(ctx, p.pos, p.rot, screenSize, alpha);
+    sprite.render(ctx, p.pos, p.rot, screenSize, alpha, this.pixelRatio * this.scale);
   }
 
   private createEmpty(): Blossom {

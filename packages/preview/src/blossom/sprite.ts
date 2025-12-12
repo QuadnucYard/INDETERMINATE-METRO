@@ -12,38 +12,30 @@ export class Sprite {
     ctx: CanvasRenderingContext2D,
     pos: Vec3,
     rot: Vec3,
-    screenSize: number,
+    size: number,
     alpha: number,
+    globalScale: number,
   ) {
-    ctx.save();
+    // We avoid save/restore for performance; caller must handle it
     ctx.globalAlpha = alpha;
-    ctx.globalCompositeOperation = "lighter";
-
-    // Orthographic projection: x,y map directly to screen space
-    // Z is used only for depth sorting and subtle size/alpha modulation
-    const screenX = pos.x;
-    const screenY = pos.y;
-
-    ctx.translate(screenX, screenY);
 
     // 3D rotation effect via 2D transforms (pseudo-3D flipping)
     const scaleX = Math.abs(Math.cos(rot.y)) * Math.cos(rot.z);
     const scaleY = Math.abs(Math.cos(rot.x)) * Math.cos(rot.z);
     const skew = Math.sin(rot.z) * 0.3;
 
-    const sizeScale = screenSize / TEXTURE_SIZE;
-    ctx.transform(
+    // Apply globalScale to the sprite size so sprites respect renderer scaling.
+    const sizeScale = (size / TEXTURE_SIZE) * globalScale;
+    ctx.setTransform(
       scaleX * sizeScale,
       skew * sizeScale,
       -skew * sizeScale,
       scaleY * sizeScale,
-      0,
-      0,
+      pos.x * globalScale,
+      pos.y * globalScale,
     );
 
     ctx.drawImage(this.canvas, -TEXTURE_SIZE / 2, -TEXTURE_SIZE / 2, TEXTURE_SIZE, TEXTURE_SIZE);
-
-    ctx.restore();
   }
 }
 
@@ -125,8 +117,6 @@ export class BlossomSpriteCollection {
     this.tintedSpriteCache.set(color, tinted);
     return tinted;
   }
-
-  public render() {}
 }
 
 function loadSprite(svg: string, onLoad?: (img: HTMLImageElement) => void) {

@@ -5,6 +5,7 @@
     "fmt": "biome format --write packages",
     "lint": "biome lint --write packages",
     "check": "biome check --write packages",
+    "grab-ridership": "cd ./packages/ridership && bun run grab-ridership",
     "process-ridership": "cd ./packages/ridership && bun run process-ridership",
     "generate-preview-data": "cd ./packages/resolve && bun run generate-data",
     "dev:frontend": "cd ./packages/preview && bun dev",

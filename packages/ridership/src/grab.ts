@@ -1,5 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import yargs from "yargs";
+import { hideBin } from "yargs/helpers";
 import { crawl } from "./crawler";
 import type { RawEntry } from "./types";
 
@@ -31,70 +33,92 @@ async function loadExistingData(): Promise<RawEntry[]> {
 }
 
 function parseArgs() {
-  const args = process.argv.slice(2);
-  let startTime: number | undefined;
-  let endTime: number | undefined;
-  let stopOnExist = false;
-  let cookieOverride: string | undefined;
-  let maxPagesOverride: number | undefined;
+  const argv = yargs(hideBin(process.argv))
+    .option("starttime", {
+      alias: "s",
+      type: "string",
+      describe: "Start time (ISO date string, e.g., 2023-01-01)",
+    })
+    .option("endtime", {
+      alias: "e",
+      type: "string",
+      describe: "End time (ISO date string, e.g., 2023-12-31)",
+    })
+    .option("stop-on-exist", {
+      alias: "o",
+      type: "boolean",
+      describe: "Stop crawling when encountering existing entries",
+    })
+    .option("cookie", {
+      alias: "c",
+      type: "string",
+      describe: "Cookie string for authentication",
+    })
+    .option("max-pages", {
+      type: "number",
+      describe: "Maximum number of pages to crawl",
+    })
+    .strict()
+    .help()
+    .parse() as {
+    starttime?: string;
+    endtime?: string;
+    "stop-on-exist"?: boolean;
+    cookie?: string;
+    "max-pages"?: number;
+  };
 
-  for (let i = 0; i < args.length; i++) {
-    const arg = args[i];
-    if (arg === "--starttime" || arg === "-s") {
-      const val = args[++i];
-      if (val) {
-        const d = new Date(val);
-        if (!Number.isNaN(d.getTime())) {
-          startTime = Math.floor(d.getTime() / 1000);
-          console.log(`Using starttime: ${d.toISOString()} (${startTime})`);
-        } else {
-          console.error(`Invalid date for starttime: ${val}`);
-        }
-      }
-    } else if (arg === "--endtime" || arg === "-e") {
-      const val = args[++i];
-      if (val) {
-        const d = new Date(val);
-        if (!Number.isNaN(d.getTime())) {
-          endTime = Math.floor(d.getTime() / 1000);
-          console.log(`Using endtime: ${d.toISOString()} (${endTime})`);
-        } else {
-          console.error(`Invalid date for endtime: ${val}`);
-        }
-      }
-    } else if (arg === "--stop-on-exist" || arg === "-o") {
-      const val = args[i + 1];
-      if (val && !val.startsWith("-")) {
-        stopOnExist = val.toLowerCase() !== "false";
-        i++;
-      } else {
-        stopOnExist = true;
-      }
-      console.log(`stopOnExist: ${stopOnExist}`);
-    } else if (arg === "--cookie" || arg === "-c") {
-      const val = args[++i];
-      if (val) {
-        cookieOverride = val;
-      }
-    } else if (arg === "--max-pages") {
-      const val = args[++i];
-      if (val) {
-        const n = Number(val);
-        if (!Number.isNaN(n) && n > 0) {
-          maxPagesOverride = n;
-        }
-      }
+  let startTime: number | undefined;
+  if (argv.starttime) {
+    const d = new Date(argv.starttime);
+    if (!Number.isNaN(d.getTime())) {
+      startTime = Math.floor(d.getTime() / 1000);
+    } else {
+      console.error(`Invalid date for starttime: ${argv.starttime}`);
+      process.exit(1);
     }
   }
 
-  return { startTime, endTime, stopOnExist, cookieOverride, maxPagesOverride };
+  let endTime: number | undefined;
+  if (argv.endtime) {
+    const d = new Date(argv.endtime);
+    if (!Number.isNaN(d.getTime())) {
+      endTime = Math.floor(d.getTime() / 1000);
+    } else {
+      console.error(`Invalid date for endtime: ${argv.endtime}`);
+      process.exit(1);
+    }
+  }
+
+  return {
+    startTime,
+    endTime,
+    stopOnExist: argv["stop-on-exist"] ?? false,
+    cookieOverride: argv.cookie,
+    maxPagesOverride: argv["max-pages"],
+  };
 }
 
 async function main() {
-  const { startTime, endTime, stopOnExist, cookieOverride, maxPagesOverride } = parseArgs();
+  const {
+    startTime: parsedStartTime,
+    endTime,
+    stopOnExist,
+    cookieOverride,
+    maxPagesOverride,
+  } = parseArgs();
 
   const cookie = cookieOverride ?? (await getCookie());
   const existingData = await loadExistingData();
+
+  let startTime = parsedStartTime;
+  if (!startTime && existingData.length > 0) {
+    const latestDate = Math.max(...existingData.map((d) => Date.parse(d.date)));
+    startTime = Math.floor(latestDate / 1000);
+    console.log(
+      `No starttime provided, fetching since last update: ${new Date(latestDate).toISOString()}`,
+    );
+  }
 
   // Create a set of existing dates for quick lookup
   // Using date + content snippet as a composite key might be safer, but date string is likely unique enough for Weibo posts
@@ -108,6 +132,14 @@ async function main() {
 
   if (newEntries.length > 0) {
     console.log(`Found ${newEntries.length} new entries.`);
+    // Backup existing data
+    try {
+      const backupPath = `${RIDERSHIP_JSON_PATH}.bak`;
+      await fs.copyFile(RIDERSHIP_JSON_PATH, backupPath);
+      console.log(`Backed up existing data to ${backupPath}`);
+    } catch (e) {
+      console.warn("Failed to backup existing data:", e);
+    }
     // Merge new entries with existing data
     const updatedData = [...newEntries, ...existingData];
 

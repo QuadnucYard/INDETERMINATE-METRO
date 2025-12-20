@@ -3,9 +3,14 @@
   "type": "module",
   "private": true,
   "scripts": {
+    "grab-ridership": "bun run src/grab.ts",
     "process-ridership": "bun run src/process_ridership.ts"
   },
   "dependencies": {
-    "radash": "^12.1.1"
+    "radash": "^12.1.1",
+    "yargs": "^18.0.0"
+  },
+  "devDependencies": {
+    "@types/yargs": "^17.0.35"
   }
 }

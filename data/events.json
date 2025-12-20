@@ -505,5 +505,18 @@
     "line": "5",
     "type": "resume",
     "stations": { "from": "方家营", "to": "文靖路" }
+  },
+
+  {
+    "date": "2025-12-19",
+    "line": "3",
+    "type": "open",
+    "stations": { "from": "秣周东路", "to": "秣陵" }
+  },
+  {
+    "date": "2025-12-19",
+    "line": "10",
+    "type": "open",
+    "stations": { "from": "安德门", "to": "东麒路" }
   }
 ]

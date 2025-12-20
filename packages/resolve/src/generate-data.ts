@@ -28,6 +28,9 @@ function generateDateRange(startDate: string, endDate: string): string[] {
   const current = new Date(startDate);
   const end = new Date(endDate);
 
+  // Add the day before start to properly reflect events occurring on startDate
+  current.setDate(current.getDate() - 1);
+
   while (current < end) {
     dates.push(current.toISOString().slice(0, 10));
     current.setDate(current.getDate() + 1);
@@ -47,7 +50,7 @@ function extendDummyDays(sortedDays: string[], eventsRaw: EventRecord[]) {
   const allDays = [...sortedDays];
 
   const firstRidershipDate = sortedDays[0];
-  if (firstEventDate && firstRidershipDate && firstEventDate < firstRidershipDate) {
+  if (firstEventDate && firstRidershipDate && firstEventDate <= firstRidershipDate) {
     // Generate dummy days from first event to first ridership date
     const dummyDays = generateDateRange(firstEventDate, firstRidershipDate);
     console.log(

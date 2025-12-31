@@ -21,63 +21,238 @@ const LINE_COLORS = [
 ];
 
 export interface SceneCtx {
+  width: number;
+  height: number;
+
   mainCanvas: HTMLCanvasElement;
   blossomSystem: BlossomSystem;
 }
 
+class Sprite {
+  img: HTMLImageElement = new Image();
+  x: number = 0;
+  y: number = 0;
+  sx: number = 1.0;
+  sy: number = 1.0;
+  rot: number = 0;
+  opacity: number = 1.0;
+  glow: number = 0;
+
+  constructor(public src: string) {
+    this.img.src = src;
+  }
+
+  render(ctx: CanvasRenderingContext2D) {
+    ctx.save();
+    ctx.globalAlpha = this.opacity;
+    ctx.translate(this.x, this.y);
+    ctx.scale(this.sx, this.sy);
+    ctx.rotate(this.rot);
+
+    // Draw glow effect if present - multiple layers for strong neon effect
+    if (this.glow > 0) {
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+
+      // Multiple glow layers for intensity
+      for (let i = 0; i < 3; i++) {
+        const blur = (20 + i * 15) * this.glow;
+        ctx.filter = `blur(${blur}px)`;
+        ctx.globalAlpha = this.opacity * this.glow * 0.6;
+        ctx.drawImage(this.img, -this.img.width / 2, -this.img.height / 2);
+      }
+      ctx.restore();
+    }
+
+    // Draw main image
+    ctx.filter = "none";
+    ctx.drawImage(this.img, -this.img.width / 2, -this.img.height / 2);
+    ctx.restore();
+  }
+}
+
+interface DiffusionRing {
+  sprite: Sprite;
+  age: number;
+  life: number;
+  startScale: number;
+  endScale: number;
+}
+
 class IntroScene implements Scene<SceneCtx> {
   static BHEIGHT: number = 256;
+  static FLASH_LOOPS: number = 3;
+  static SCALE_STEPS: number[] = [0.4, 0.5, 0.6, 0.5, 0.4];
+  static DIFFUSION_SPAWN_RATE: number = 0.12; // seconds between spawns
+  static DIFFUSION_RING_LIFE: number = 1.2; // seconds per ring
 
   name: string = "intro";
-  duration: number = 1.0;
+  duration: number = 3.0;
 
-  blossomImg: HTMLImageElement = new Image();
-  blossomTransform: {
-    x: number;
-    y: number;
-    sx: number;
-    sy: number;
-    rot: number;
-    opacity: number;
-  } = {
-    x: 0,
-    y: 0,
-    sx: 1.0,
-    sy: 1.0,
-    rot: 0,
-    opacity: 0.0,
-  };
+  outerSprite: Sprite;
+  innerLeftSprite: Sprite;
+  innerRightSprite: Sprite;
+  diffusionRings: DiffusionRing[] = [];
+  timeSinceLastSpawn: number = 0;
+
+  constructor() {
+    this.outerSprite = new Sprite(`${import.meta.env.BASE_URL}blossom-stroke-outer.png`);
+    this.innerLeftSprite = new Sprite(`${import.meta.env.BASE_URL}blossom-stroke-inner.png`);
+    this.innerRightSprite = new Sprite(`${import.meta.env.BASE_URL}blossom-stroke-inner.png`);
+  }
 
   enter(sctx: SceneCtx) {
-    this.blossomImg.src = `${import.meta.env.BASE_URL}blossom-stroke.png`;
-    this.blossomTransform.x = sctx.mainCanvas.width / 2;
-    this.blossomTransform.y = sctx.mainCanvas.height - IntroScene.BHEIGHT / 2;
+    const { width, height } = sctx.mainCanvas;
+
+    // Position outer sprite at bottom center
+    this.outerSprite.x = width / 2;
+    this.outerSprite.y = height - IntroScene.BHEIGHT / 2;
+    this.outerSprite.sx = 0.5;
+    this.outerSprite.sy = 0.5;
+    this.outerSprite.opacity = 0;
+    this.outerSprite.glow = 0;
+
+    // Position inner sprites off-screen
+    this.innerLeftSprite.x = -IntroScene.BHEIGHT;
+    this.innerLeftSprite.y = height - IntroScene.BHEIGHT / 2;
+    this.innerLeftSprite.sx = 0.4;
+    this.innerLeftSprite.sy = 0.4;
+    this.innerLeftSprite.opacity = 0;
+
+    this.innerRightSprite.x = width + IntroScene.BHEIGHT;
+    this.innerRightSprite.y = height - IntroScene.BHEIGHT / 2;
+    this.innerRightSprite.sx = 0.4;
+    this.innerRightSprite.sy = 0.4;
+    this.innerRightSprite.opacity = 0;
   }
 
-  update(_dt: number, t: number, sctx: SceneCtx) {
-    const POINTS = [0.1, 0.7, 1.0] as const;
-    if (t < POINTS[0]) this.updateFadeIn(t / POINTS[0]);
-    else if (t < POINTS[1]) this.updateMain((t - POINTS[0]) / (POINTS[1] - POINTS[0]));
-    else this.updateFadeOut((t - POINTS[1]) / (POINTS[2] - POINTS[1]), sctx);
+  update(dt: number, t: number, sctx: SceneCtx) {
+    const POINTS = [0.15, 0.65, 1.0] as const;
+
+    if (t < POINTS[0]) {
+      // Phase 1: Outer fade in
+      this.updateOuterFadeIn(t / POINTS[0]);
+    } else if (t < POINTS[1]) {
+      // Phase 2: Outer neon flashing + inner slides in
+      const phaseT = (t - POINTS[0]) / (POINTS[1] - POINTS[0]);
+      this.updateFlashingAndSlide(phaseT, sctx, dt);
+    } else {
+      // Phase 3: Merge and fade out - clear diffusion rings
+      if (this.diffusionRings.length > 0) {
+        this.diffusionRings = [];
+      }
+      const phaseT = (t - POINTS[1]) / (POINTS[2] - POINTS[1]);
+      this.updateMergeAndFadeOut(phaseT, sctx);
+    }
   }
 
-  updateFadeIn(t: number) {
-    this.blossomTransform.opacity = t;
+  updateOuterFadeIn(t: number) {
+    this.outerSprite.opacity = easeOut(t);
   }
 
-  updateMain(t: number) {
-    this.blossomTransform.rot = (Math.floor(t * 5) / 5) * (Math.PI * 2);
-    this.blossomTransform.opacity = 1.0;
+  updateFlashingAndSlide(t: number, sctx: SceneCtx, dt: number) {
+    const { width } = sctx;
+
+    // Outer: neon flashing with discrete scaling
+    this.outerSprite.opacity = 1.0;
+
+    // Flash cycle
+    const loopProgress = (t * IntroScene.FLASH_LOOPS) % 1.0;
+    const flashIntensity = Math.sin(loopProgress * Math.PI * 2) * 0.5 + 0.5;
+    this.outerSprite.glow = flashIntensity * 0.9;
+
+    // Discrete scaling
+    const stepIndex =
+      Math.floor(t * IntroScene.FLASH_LOOPS * IntroScene.SCALE_STEPS.length) %
+      IntroScene.SCALE_STEPS.length;
+    const scale = IntroScene.SCALE_STEPS[stepIndex] ?? 1.0;
+    this.outerSprite.sx = scale;
+    this.outerSprite.sy = scale;
+
+    // Spawn diffusion rings from center
+    this.timeSinceLastSpawn += dt;
+    if (this.timeSinceLastSpawn >= IntroScene.DIFFUSION_SPAWN_RATE) {
+      this.spawnDiffusionRing(sctx);
+      this.timeSinceLastSpawn = 0;
+    }
+
+    // Update diffusion rings
+    for (let i = this.diffusionRings.length - 1; i >= 0; i--) {
+      const ring = this.diffusionRings[i];
+      if (!ring) continue;
+
+      ring.age += dt;
+      const progress = ring.age / ring.life;
+
+      if (progress >= 1.0) {
+        this.diffusionRings.splice(i, 1);
+        continue;
+      }
+
+      // Scale grows
+      ring.sprite.sx = lerpf(ring.startScale, ring.endScale, easeOut(progress));
+      ring.sprite.sy = ring.sprite.sx;
+
+      // Fade out
+      ring.sprite.opacity = 1.0 - easeOut(progress);
+
+      // Add subtle glow
+      ring.sprite.glow = (1 - progress) * 0.4;
+    }
+
+    // Inner sprites slide in
+    const slideProgress = easeOut(t);
+    const centerX = width / 2;
+    const startOffsetX = width * 0.6;
+
+    this.innerLeftSprite.opacity = slideProgress;
+    this.innerLeftSprite.x = lerpf(centerX - startOffsetX, centerX, slideProgress);
+
+    this.innerRightSprite.opacity = slideProgress;
+    this.innerRightSprite.x = lerpf(centerX + startOffsetX, centerX, slideProgress);
   }
 
-  updateFadeOut(t: number, sctx: SceneCtx) {
-    const { height } = sctx.mainCanvas;
+  spawnDiffusionRing(sctx: SceneCtx) {
+    const { width, height } = sctx.mainCanvas;
+    const sprite = new Sprite(`${import.meta.env.BASE_URL}blossom-stroke-outer.png`);
+    sprite.x = width / 2;
+    sprite.y = height - IntroScene.BHEIGHT / 2;
+
+    this.diffusionRings.push({
+      sprite,
+      age: 0,
+      life: IntroScene.DIFFUSION_RING_LIFE,
+      startScale: 0.2,
+      endScale: 0.8,
+    });
+  }
+
+  updateMergeAndFadeOut(t: number, sctx: SceneCtx) {
+    const { width, height } = sctx.mainCanvas;
     const progress = easeInOut(t);
-    this.blossomTransform.y = lerpf(height - IntroScene.BHEIGHT / 2, height / 2 + 64, progress); // ease to center
-    const baseScale = 0.5;
-    this.blossomTransform.sx = lerpf(0.5, 0.0, progress); // 0.5 -> 0.0
-    this.blossomTransform.sy = lerpf(baseScale, height / IntroScene.BHEIGHT, progress);
-    this.blossomTransform.rot = 0;
+    const centerX = width / 2;
+    const centerY = height / 2 + 64;
+
+    // Move everything to center and scale up
+    this.outerSprite.x = centerX;
+    this.outerSprite.y = lerpf(height - IntroScene.BHEIGHT / 2, centerY, progress);
+    this.outerSprite.sx = lerpf(0.5, 0.0, progress);
+    this.outerSprite.sy = lerpf(0.5, height / IntroScene.BHEIGHT, progress);
+    this.outerSprite.glow = 0;
+    this.outerSprite.opacity = 1.0 - progress * 0.3;
+
+    // Inner sprites merge and fade
+    this.innerLeftSprite.x = centerX;
+    this.innerLeftSprite.y = lerpf(height - IntroScene.BHEIGHT / 2, centerY, progress);
+    this.innerLeftSprite.sx = lerpf(0.4, 0.0, progress);
+    this.innerLeftSprite.sy = lerpf(0.4, (height / IntroScene.BHEIGHT) * 0.8, progress);
+    this.innerLeftSprite.opacity = 1.0 - progress * 0.5;
+
+    this.innerRightSprite.x = centerX;
+    this.innerRightSprite.y = lerpf(height - IntroScene.BHEIGHT / 2, centerY, progress);
+    this.innerRightSprite.sx = lerpf(0.4, 0.0, progress);
+    this.innerRightSprite.sy = lerpf(0.4, (height / IntroScene.BHEIGHT) * 0.8, progress);
+    this.innerRightSprite.opacity = 1.0 - progress * 0.5;
   }
 
   render(sctx: SceneCtx) {
@@ -87,21 +262,15 @@ class IntroScene implements Scene<SceneCtx> {
     const { width, height } = sctx.mainCanvas;
     ctx.clearRect(0, 0, width, height);
 
-    ctx.save();
-    ctx.globalAlpha = this.blossomTransform.opacity;
-    ctx.translate(this.blossomTransform.x, this.blossomTransform.y);
-    ctx.scale(this.blossomTransform.sx, this.blossomTransform.sy);
-    ctx.rotate(this.blossomTransform.rot);
-    ctx.drawImage(this.blossomImg, -this.blossomImg.width / 2, -this.blossomImg.height / 2);
-    // TODO: check center
-    ctx.fillStyle = "rgba(255, 192, 203, 0.5)";
-    ctx.fillRect(
-      -this.blossomImg.width / 2,
-      -this.blossomImg.height / 2,
-      this.blossomImg.width,
-      this.blossomImg.height,
-    );
-    ctx.restore();
+    // Render diffusion rings first (background layer)
+    for (const ring of this.diffusionRings) {
+      ring.sprite.render(ctx);
+    }
+
+    // Render in layers: inner sprites first, then outer on top
+    this.innerLeftSprite.render(ctx);
+    this.innerRightSprite.render(ctx);
+    this.outerSprite.render(ctx);
   }
 }
 
@@ -149,11 +318,13 @@ class LinesScene implements Scene<SceneCtx> {
   }
 
   render(sctx: SceneCtx): void {
+    const { width, height } = sctx;
+
     // Draw vertical lines expanding from center with bloom effect
     const ctx = sctx.mainCanvas.getContext("2d");
     if (!ctx) return;
 
-    ctx.clearRect(0, 0, sctx.mainCanvas.width, sctx.mainCanvas.height);
+    ctx.clearRect(0, 0, width, height);
 
     const { lineWidth, bloomIntensity } = this.state;
 
@@ -209,7 +380,7 @@ class LinesScene implements Scene<SceneCtx> {
 
         blossomSystem.spawnParticle(
           {
-            life: 2.5,
+            life: 4.0,
             lifeVar: 0.5,
             size: 24,
             sizeVar: 8,
@@ -234,10 +405,35 @@ class LinesScene implements Scene<SceneCtx> {
 
 class FallScene implements Scene<SceneCtx> {
   name: string = "falling-particles";
-  duration: number = 3.0;
+  duration: number = 4.0;
 
   update(dt: number, t: number, sctx: SceneCtx): void {
+    const { width, height } = sctx;
+
+    // Transition from repulsion to attraction
+    const TRANSITION_POINT = 0.2; // 20% into the scene
+
+    const centerX = width / 2;
+    const centerY = height / 2;
+    const centerZ = 500; // Mid-depth in z-space
+
+    if (t < TRANSITION_POINT) {
+      // Repulsion phase - push particles apart strongly
+      const repulsionStrength = lerpf(-2500, -500, t / TRANSITION_POINT);
+      sctx.blossomSystem.setCentralForce(vec3(centerX, centerY, centerZ), repulsionStrength, 2000);
+    } else {
+      // Attraction phase - pull particles to center with strong eased force
+      const attractionProgress = (t - TRANSITION_POINT) / (1.0 - TRANSITION_POINT);
+      const attractionStrength = lerpf(0, 6000, easeInOut(attractionProgress));
+      sctx.blossomSystem.setCentralForce(vec3(centerX, centerY, centerZ), attractionStrength, 2000);
+    }
+
     sctx.blossomSystem.update(dt, t * this.duration);
+  }
+
+  leave(sctx: SceneCtx): void {
+    // Disable central force when leaving
+    sctx.blossomSystem.clearCentralForce();
   }
 }
 

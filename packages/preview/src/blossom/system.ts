@@ -8,7 +8,7 @@ import type { EmissionConfig } from "./config";
 import type { Emitter } from "./emitter";
 import type { Blossom } from "./particle";
 import { BlossomSpriteCollection } from "./sprite";
-import { type Vec3, vec3, vec3Mag, zeroVec3 } from "./utils";
+import { randomUnitVectorInCone, type Vec3, vec3, vec3Mag, zeroVec3 } from "./utils";
 
 // ============================================================================
 // Wind configuration
@@ -28,6 +28,12 @@ const DEFAULT_WIND: WindConfig = {
   turbulence: 8,
 };
 
+interface CentralForceConfig {
+  center: Readonly<Vec3>;
+  strength: number; // positive = attraction, negative = repulsion
+  maxDistance: number;
+}
+
 // ============================================================================
 // Depth configuration (for orthographic projection)
 // ============================================================================
@@ -39,7 +45,7 @@ const DEPTH_RANGE = { near: -200, far: 400 };
 // Blossom Particle System
 // ============================================================================
 
-const MARGIN = 100;
+const MARGIN_RATIO = 0.25; // 25% of size
 const MAX_PARTICLES = 3000;
 
 export class BlossomSystem extends CanvasRenderer {
@@ -54,6 +60,9 @@ export class BlossomSystem extends CanvasRenderer {
   private wind: Readonly<WindConfig> = DEFAULT_WIND;
   private currentGust: Vec3 = zeroVec3();
 
+  // Central force (for special effects)
+  private centralForce?: CentralForceConfig;
+
   // World bounds (in reference coordinate space, same as metro canvas)
   private bounds = { minX: -100, maxX: 2100, minY: -200, maxY: 1200 };
 
@@ -66,15 +75,20 @@ export class BlossomSystem extends CanvasRenderer {
     this.sprites = new BlossomSpriteCollection();
   }
 
+  /**
+   * Resize the canvas and update bounds
+   * @param rect The new size of the canvas
+   * @param refRect The reference coordinate space of content
+   */
   public override resize(rect: Rect, refRect: Rect) {
     super.resize(rect, refRect);
 
     // Update bounds to match reference coordinate space
     this.bounds = {
-      minX: -MARGIN,
-      maxX: refRect.width + MARGIN,
-      minY: -MARGIN * 2,
-      maxY: refRect.height + MARGIN,
+      minX: refRect.width * -MARGIN_RATIO,
+      maxX: refRect.width * (1 + MARGIN_RATIO),
+      minY: refRect.height * -MARGIN_RATIO,
+      maxY: refRect.height * (1 + MARGIN_RATIO),
     };
   }
 
@@ -93,25 +107,16 @@ export class BlossomSystem extends CanvasRenderer {
     Object.assign(this.wind, config);
   }
 
-  /**
-   * Generate a random unit vector within a cone
-   * @param spreadDeg Half-angle of cone in degrees
-   * @param upwardBias Bias toward negative Y (upward on screen)
-   */
-  private randomUnitVectorInCone(spreadDeg: number, upwardBias: number = 0.3): Readonly<Vec3> {
-    const spreadRad = (spreadDeg * Math.PI) / 180;
-    const theta = Math.random() * Math.PI * 2;
-    const phi = Math.acos(1 - Math.random() * (1 - Math.cos(spreadRad)));
+  public setCentralForce(center: Vec3, strength: number, maxDistance = 1000) {
+    this.centralForce = {
+      center,
+      strength,
+      maxDistance,
+    };
+  }
 
-    const sinPhi = Math.sin(phi);
-    const cosPhi = Math.cos(phi);
-
-    const x = sinPhi * Math.cos(theta);
-    const y = -cosPhi * upwardBias + sinPhi * Math.sin(theta) * (1 - upwardBias);
-    const z = sinPhi * Math.sin(theta) * 0.5 + cosPhi * (1 - upwardBias);
-
-    const mag = Math.sqrt(x * x + y * y + z * z);
-    return vec3(x / mag, y / mag, z / mag);
+  public clearCentralForce() {
+    this.centralForce = undefined;
   }
 
   public addEmitter(emitter: Emitter) {
@@ -136,7 +141,7 @@ export class BlossomSystem extends CanvasRenderer {
     p.pos.z = pos.z;
 
     // Velocity in spherical cone
-    const dir = this.randomUnitVectorInCone(cfg.spreadDeg, 0.6);
+    const dir = randomUnitVectorInCone(cfg.spreadDeg, 0.6);
     const speed = cfg.speed + (Math.random() * 2 - 1) * cfg.speedVar;
     p.vel.x = dir.x * speed;
     p.vel.y = dir.y * speed;
@@ -231,10 +236,19 @@ export class BlossomSystem extends CanvasRenderer {
       this.applyPhysics(p, dt, time);
 
       // Bounds check
-      if (p.pos.y > this.bounds.maxY + 100 || p.pos.x < this.bounds.minX - 100) {
+      if (this.shouldDespawn(p)) {
         this.recycleParticle(p, i);
       }
     }
+  }
+
+  private shouldDespawn(p: Blossom): boolean {
+    return (
+      p.pos.x < this.bounds.minX ||
+      p.pos.x > this.bounds.maxX ||
+      p.pos.y < this.bounds.minY ||
+      p.pos.y > this.bounds.maxY
+    );
   }
 
   private applyPhysics(p: Blossom, dt: number, time: number) {
@@ -274,6 +288,30 @@ export class BlossomSystem extends CanvasRenderer {
     p.vel.x *= physDrag;
     p.vel.y *= physDrag;
     p.vel.z *= physDrag;
+
+    // Central force (attraction/repulsion)
+    if (this.centralForce) {
+      const { center, strength, maxDistance } = this.centralForce;
+
+      const dx = center.x - p.pos.x;
+      const dy = center.y - p.pos.y;
+      const dz = center.z - p.pos.z;
+      const distSq = dx * dx + dy * dy + dz * dz;
+      const dist = Math.sqrt(distSq);
+
+      if (dist > 0.1) {
+        // Always affect all particles (no max distance check)
+        // Use linear falloff with minimum strength to prevent close particles from being blown too easily
+        // Far particles still get affected due to the base strength
+        const distanceFactor = Math.min(dist / maxDistance, 1.0);
+        const baseStrength = strength * 0.5; // Minimum 50% strength even at distance
+        const forceMag = baseStrength + strength * 0.5 * (1 - distanceFactor);
+
+        p.vel.x += (dx / dist) * forceMag * dt;
+        p.vel.y += (dy / dist) * forceMag * dt;
+        p.vel.z += (dz / dist) * forceMag * dt;
+      }
+    }
 
     // Flutter effect
     const flutter = Math.sin(p.rot.x * 2 + p.rot.z) * 15 * (1 / p.mass);

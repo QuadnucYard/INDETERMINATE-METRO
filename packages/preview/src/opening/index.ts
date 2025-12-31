@@ -41,10 +41,22 @@ export class OpeningAnimation {
     this.linesCanvas.width = this.width;
     this.linesCanvas.height = this.height;
 
-    // Create container
+    // Create container with proper styling for screen fit
     this.container = div(
-      { className: "main" },
-      div({ className: "canvas-container" }, this.linesCanvas, this.blossomSystem.getCanvas()),
+      {
+        className: "main",
+        style:
+          "position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden;",
+      },
+      div(
+        {
+          className: "canvas-container",
+          style:
+            "position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;",
+        },
+        this.linesCanvas,
+        this.blossomSystem.getCanvas(),
+      ),
     );
   }
 
@@ -58,6 +70,8 @@ export class OpeningAnimation {
     const animate = () => {
       const now = performance.now();
       this.sceneManager.update((now - lastUpdateTime) / 1000, {
+        width: this.width,
+        height: this.height,
         mainCanvas: this.linesCanvas,
         blossomSystem: this.blossomSystem,
       });

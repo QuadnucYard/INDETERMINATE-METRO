@@ -52,10 +52,6 @@ export function setCanvasSizeForDisplay(
   devicePixelRatio: number = window.devicePixelRatio || 1,
 ) {
   const dpr = devicePixelRatio || 1;
-  // CSS size (logical pixels)
-  // canvas.style.width = `${Math.round(width)}px`;
-  // canvas.style.height = `${Math.round(height)}px`;
-  // Backing store pixels (actual resolution)
   canvas.width = Math.round(width * dpr);
   canvas.height = Math.round(height * dpr);
   return dpr;

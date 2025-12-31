@@ -1,4 +1,5 @@
 import { lerp, midpoint } from "im-shared/math";
+import { easeOut } from "./easing";
 import { getStationPositionAtDay } from "./keyframe";
 import type { LineData, PositionRefMap, PreviewData, StationData, StationId, Vec2 } from "./types";
 import { headKey } from "./utils";
@@ -82,7 +83,7 @@ export class PositionAnimator {
         if (elapsed < anim.duration) {
           // Animate with easing
           const t = elapsed / anim.duration;
-          const eased = easeOutCubic(t);
+          const eased = easeOut(t);
           anim.current = lerp(anim.start, anim.target, eased);
         } else {
           anim.current = anim.target;
@@ -200,11 +201,4 @@ function findInsertionPoint(
 
   // Fallback if something unexpected occurred
   return current.target;
-}
-
-/**
- * Cubic ease-out for smooth deceleration
- */
-function easeOutCubic(t: number): number {
-  return 1 - (1 - t) ** 3;
 }

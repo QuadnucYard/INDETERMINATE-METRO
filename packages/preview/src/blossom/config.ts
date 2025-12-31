@@ -6,8 +6,8 @@ export interface EmissionConfig {
   speed: number;
   speedVar: number;
   spreadDeg: number;
-  gravityZ: number;
-  buoyancyZ: number;
+  gravityZ: number; // unused!
+  buoyancyZ: number; // unused!
   drag: number;
   angularVar: number;
   blend: GlobalCompositeOperation;

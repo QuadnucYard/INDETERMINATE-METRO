@@ -184,7 +184,11 @@ class AtlasAllocator {
   // single global nextIndex used for all allocations
   private nextIndex = 0;
 
-  constructor(private pageSize: number, private tileWidth: number, private tileHeight: number) {
+  constructor(
+    private pageSize: number,
+    private tileWidth: number,
+    private tileHeight: number,
+  ) {
     this.cols = Math.floor(this.pageSize / this.tileWidth) || 1;
     this.rows = Math.floor(this.pageSize / this.tileHeight) || 1;
   }

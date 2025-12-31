@@ -40,7 +40,7 @@ const DEPTH_RANGE = { near: -200, far: 400 };
 // ============================================================================
 
 const MARGIN = 100;
-const MAX_PARTICLES = 2000;
+const MAX_PARTICLES = 3000;
 
 export class BlossomSystem extends CanvasRenderer {
   private pool: Blossom[] = [];
@@ -393,6 +393,18 @@ export class BlossomSystem extends CanvasRenderer {
       this.pool.push(p);
     }
     this.active.length = 0;
+  }
+
+  /**
+   * Apply a custom force to all active particles
+   */
+  public applyForce(forceFn: (pos: Vec3, vel: Vec3) => Vec3) {
+    for (const p of this.active) {
+      const force = forceFn(p.pos, p.vel);
+      p.vel.x += force.x;
+      p.vel.y += force.y;
+      p.vel.z += force.z;
+    }
   }
 
   /**

@@ -10,3 +10,7 @@ export function lerp(p1: Vec2, p2: Vec2, t: number): Vec2 {
     y: p1.y + (p2.y - p1.y) * t,
   };
 }
+
+export function lerpf(a: number, b: number, t: number): number {
+  return a + (b - a) * t;
+}

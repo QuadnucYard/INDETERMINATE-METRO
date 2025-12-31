@@ -5,6 +5,7 @@ import { useData } from "./data-loader";
 import { useRenderer } from "./render";
 import type { RenderStyle } from "./types";
 import "./styles.css";
+import { OpeningAnimation } from "./opening";
 
 const { div } = van.tags;
 
@@ -16,6 +17,13 @@ function ErrorDisplay() {
 }
 
 function App() {
+  enum AppState {
+    Opening,
+    Main,
+  }
+
+  const appState = van.state(AppState.Opening);
+
   const { data } = useData();
   const controlsState: ControlsState = {
     currentDay: van.state(0),
@@ -40,9 +48,32 @@ function App() {
 
   const { canvasContainer } = useRenderer(data, controlsState, renderStyle);
 
-  const app = div({ id: "app" }, canvasContainer, controls);
+  const opening = new OpeningAnimation({
+    width: 1920,
+    height: 1080,
+    onComplete: () => {
+      appState.val = AppState.Main;
+    },
+  });
 
-  return app;
+  // Start animation after a short delay to ensure DOM is ready
+  setTimeout(() => opening.start(), 100);
+
+  const when = (cond: boolean) => (cond ? "" : "display:none");
+  const mainContent = div(
+    { id: "app" },
+    div(
+      { class: "main", style: () => when(appState.val === AppState.Main) },
+      canvasContainer,
+      controls,
+    ),
+    div(
+      { class: "main", style: () => when(appState.val === AppState.Opening) },
+      opening.getElement(),
+    ),
+  );
+
+  return mainContent;
 }
 
 async function init() {

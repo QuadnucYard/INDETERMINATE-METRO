@@ -19,8 +19,20 @@ export function createControls(
 ): HTMLElement {
   const { currentDay, speed, isPlaying } = controls;
 
+  const visible = van.state(true);
+
+  // Add key listener for toggling controls
+  const toggleControls = (event: KeyboardEvent) => {
+    if (event.key === "c" || event.key === "C") {
+      visible.val = !visible.val;
+    }
+  };
+  document.addEventListener("keydown", toggleControls);
+
+  const when = (cond: boolean) => (cond ? "" : "display:none");
+
   const controlsElement = div(
-    { class: "controls" },
+    { class: "controls", style: () => when(visible.val) },
     // Progress section
     div(
       { class: "progress-section" },

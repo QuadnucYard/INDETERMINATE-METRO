@@ -21,6 +21,7 @@ export class OpeningAnimation {
   private blossomSystem: BlossomSystem;
   private animationId?: number;
   private onComplete?: () => void;
+  private skipHandler?: (event: KeyboardEvent) => void;
 
   constructor(options: OpeningAnimationOptions) {
     this.onComplete = options.onComplete;
@@ -67,6 +68,14 @@ export class OpeningAnimation {
   public start(): void {
     let lastUpdateTime = 0;
 
+    this.skipHandler = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        this.onComplete?.();
+        this.cleanup();
+      }
+    };
+    document.addEventListener("keydown", this.skipHandler);
+
     const animate = () => {
       const now = performance.now();
       this.sceneManager.update((now - lastUpdateTime) / 1000, {
@@ -92,6 +101,10 @@ export class OpeningAnimation {
     if (this.animationId) {
       cancelAnimationFrame(this.animationId);
       this.animationId = undefined;
+    }
+    if (this.skipHandler) {
+      document.removeEventListener("keydown", this.skipHandler);
+      this.skipHandler = undefined;
     }
     this.blossomSystem.clear();
     this.container.remove();

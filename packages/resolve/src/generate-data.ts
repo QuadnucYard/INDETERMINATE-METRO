@@ -7,6 +7,7 @@ import type { EventRecord, LineMeta } from "./types";
 
 const DATA_DIR = path.join(process.cwd(), "../../data");
 const INPUT_META_PATH = path.join(DATA_DIR, "lines-meta.json");
+const INPUT_LAYOUT_PATH = path.join(DATA_DIR, "lines-layout.json");
 const INPUT_EVENTS_PATH = path.join(DATA_DIR, "events.json");
 const INPUT_CSV_PATH = path.join(DATA_DIR, "ridership.csv");
 const OUT_PATH = path.join(DATA_DIR, "../packages/preview/public/preview-data.json");
@@ -65,7 +66,15 @@ function extendDummyDays(sortedDays: string[], eventsRaw: EventRecord[]) {
 
 async function main() {
   const linesMeta = await loadJson<LineMeta[]>(INPUT_META_PATH);
+  const linesLayout = await loadJson<Record<string, Partial<LineMeta>>>(INPUT_LAYOUT_PATH);
   const eventsRaw = await loadJson<EventRecord[]>(INPUT_EVENTS_PATH);
+
+  // Merge layout data into linesMeta
+  for (const line of linesMeta) {
+    if (linesLayout[line.id]) {
+      Object.assign(line, linesLayout[line.id]);
+    }
+  }
 
   // Load computed CSV ridership (expected to be present in /output/ridership.csv)
   const { ridershipMap, sortedDays } = await loadRidershipData(INPUT_CSV_PATH);

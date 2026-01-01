@@ -1,21 +1,24 @@
 import type { State } from "vanjs-core";
+import type { Clock } from "./clock";
 import type { ControlsState } from "./controls";
 import type { PreviewData } from "./types";
 
-export function useAnimation(data: State<PreviewData | null>, controlsState: ControlsState) {
-  let lastFrameTime = 0;
+class AnimationController {
+  private data: State<PreviewData | null>;
+  private controlsState: ControlsState;
 
-  /**
-   * Main animation loop
-   */
-  function animate(time: number, state: ControlsState) {
-    const { currentDay, speed, isPlaying } = state;
+  constructor(data: State<PreviewData | null>, controlsState: ControlsState) {
+    this.data = data;
+    this.controlsState = controlsState;
+  }
+
+  update(dt: number, _time: number): void {
+    const { currentDay, speed, isPlaying } = this.controlsState;
 
     // Update currentDay if playing
-    if (isPlaying.val && data.val) {
-      const dt = (time - lastFrameTime) / 1000;
+    if (isPlaying.val && this.data.val) {
       const newDay = currentDay.val + speed.val * dt;
-      const maxDay = data.val.days.length - 1;
+      const maxDay = this.data.val.days.length - 1;
 
       if (newDay >= maxDay) {
         currentDay.val = maxDay;
@@ -24,16 +27,17 @@ export function useAnimation(data: State<PreviewData | null>, controlsState: Con
         currentDay.val = newDay;
       }
     }
-
-    lastFrameTime = time;
-
-    // Continue animation loop
-    requestAnimationFrame((t) => animate(t, state));
   }
+}
 
-  // Start animation loop
-  requestAnimationFrame((time) => {
-    lastFrameTime = time;
-    animate(time, controlsState);
-  });
+export function useAnimation(
+  data: State<PreviewData | null>,
+  controlsState: ControlsState,
+  clock: Clock,
+) {
+  const controller = new AnimationController(data, controlsState);
+  const unsubscribe = clock.subscribe(controller);
+
+  // Return cleanup function
+  return unsubscribe;
 }

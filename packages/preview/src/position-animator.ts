@@ -12,10 +12,10 @@ interface AnimatedPosition {
   duration: number;
 }
 
-/** ms for position transitions */
-const TRANSITION_DURATION = 300;
-/** ms for new station insertion animation */
-const INSERTION_DURATION = 300;
+/** seconds for position transitions */
+const TRANSITION_DURATION = 0.3;
+/** seconds for new station insertion animation */
+const INSERTION_DURATION = 0.3;
 
 /**
  * Manages smooth transitions for station positions independent of day progress

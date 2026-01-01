@@ -1,5 +1,6 @@
 import van from "vanjs-core";
 import { BlossomSystem } from "@/blossom/system";
+import type { Clock, ClockSubscriber } from "../clock";
 import { SceneManager } from "./scene";
 import { SCENES, type SceneCtx } from "./scenes";
 
@@ -11,7 +12,7 @@ interface OpeningAnimationOptions {
   height: number;
 }
 
-export class OpeningAnimation {
+export class OpeningAnimation implements ClockSubscriber {
   private sceneManager: SceneManager<SceneCtx>;
 
   private width: number;
@@ -19,11 +20,14 @@ export class OpeningAnimation {
   private container: HTMLElement;
   private linesCanvas: HTMLCanvasElement;
   private blossomSystem: BlossomSystem;
-  private animationId?: number;
   private onComplete?: () => void;
   private skipHandler?: (event: KeyboardEvent) => void;
+  private unsubscribeClock?: () => void;
 
-  constructor(options: OpeningAnimationOptions) {
+  constructor(
+    private clock: Clock,
+    options: OpeningAnimationOptions,
+  ) {
     this.onComplete = options.onComplete;
     this.width = options.width;
     this.height = options.height;
@@ -65,9 +69,20 @@ export class OpeningAnimation {
     return this.container;
   }
 
-  public start(): void {
-    let lastUpdateTime = 0;
+  public update(dt: number, _time: number): void {
+    this.sceneManager.update(dt, {
+      width: this.width,
+      height: this.height,
+      mainCanvas: this.linesCanvas,
+      blossomSystem: this.blossomSystem,
+    });
+    if (this.sceneManager.isFinished()) {
+      this.onComplete?.();
+      this.cleanup();
+    }
+  }
 
+  public start(): void {
     this.skipHandler = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         this.onComplete?.();
@@ -76,35 +91,18 @@ export class OpeningAnimation {
     };
     document.addEventListener("keydown", this.skipHandler);
 
-    const animate = () => {
-      const now = performance.now();
-      this.sceneManager.update((now - lastUpdateTime) / 1000, {
-        width: this.width,
-        height: this.height,
-        mainCanvas: this.linesCanvas,
-        blossomSystem: this.blossomSystem,
-      });
-      if (this.sceneManager.isFinished()) {
-        this.onComplete?.();
-        this.cleanup();
-        return;
-      }
-      lastUpdateTime = now;
-
-      this.animationId = requestAnimationFrame(animate);
-    };
-
-    animate();
+    // Subscribe to master clock
+    this.unsubscribeClock = this.clock.subscribe(this);
   }
 
   private cleanup(): void {
-    if (this.animationId) {
-      cancelAnimationFrame(this.animationId);
-      this.animationId = undefined;
-    }
     if (this.skipHandler) {
       document.removeEventListener("keydown", this.skipHandler);
       this.skipHandler = undefined;
+    }
+    if (this.unsubscribeClock) {
+      this.unsubscribeClock();
+      this.unsubscribeClock = undefined;
     }
     this.blossomSystem.clear();
     this.container.remove();

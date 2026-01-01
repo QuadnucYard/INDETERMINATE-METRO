@@ -5,6 +5,7 @@ import { useData } from "./data-loader";
 import { useRenderer } from "./render";
 import type { RenderStyle } from "./types";
 import "./styles.css";
+import { Clock } from "./clock";
 import { OpeningAnimation } from "./opening";
 
 const { div } = van.tags;
@@ -23,6 +24,9 @@ function App() {
   }
 
   const appState = van.state(AppState.Opening);
+
+  // Create master clock
+  const clock = new Clock();
 
   const { data } = useData();
   const controlsState: ControlsState = {
@@ -44,11 +48,11 @@ function App() {
     (day: number) => data.val?.days[Math.floor(day)],
   );
 
-  useAnimation(data, controlsState);
+  useAnimation(data, controlsState, clock);
 
-  const { canvasContainer } = useRenderer(data, controlsState, renderStyle);
+  const { canvasContainer } = useRenderer(data, controlsState, renderStyle, clock);
 
-  const opening = new OpeningAnimation({
+  const opening = new OpeningAnimation(clock, {
     width: 1920,
     height: 1080,
     onComplete: () => {
@@ -57,7 +61,10 @@ function App() {
   });
 
   // Start animation after a short delay to ensure DOM is ready
-  setTimeout(() => opening.start(), 100);
+  setTimeout(() => {
+    opening.start();
+    clock.start();
+  }, 100);
 
   const when = (cond: boolean) => (cond ? "" : "display:none");
   const mainContent = div(

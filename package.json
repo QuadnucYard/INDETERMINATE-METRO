@@ -10,13 +10,14 @@
     "generate-preview-data": "cd ./packages/resolve && bun run generate-data",
     "dev:frontend": "cd ./packages/preview && bun dev",
     "build:frontend": "cd ./packages/preview && bun run build",
-    "preview:frontend": "cd ./packages/preview && bun preview"
+    "preview:frontend": "cd ./packages/preview && bun preview",
+    "recorder:server": "cd ./packages/recorder && bun run start"
   },
   "workspaces": [
     "packages/*"
   ],
   "devDependencies": {
     "@types/bun": "latest",
-    "@typescript/native-preview": "^7.0.0-dev.20251208.1"
+    "@typescript/native-preview": "^7.0.0-dev.20260101.1"
   }
 }

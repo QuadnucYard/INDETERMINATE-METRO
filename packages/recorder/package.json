@@ -1,0 +1,16 @@
+{
+  "name": "im-recorder",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "bun run src/main.ts"
+  },
+  "dependencies": {
+    "ws": "^8.18.0",
+    "yargs": "^18.0.0"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.5.13",
+    "@types/yargs": "^17.0.32"
+  }
+}
